@@ -1,0 +1,76 @@
+# ¿Qué? Orquesta el stack completo — db, mailpit, backend y frontend.
+# ¿Para qué? `docker compose up` levanta todo el proyecto de punta a punta, sin instalar
+#   Node.js ni pnpm en el host.
+# ¿Impacto? Las credenciales de `db` están hardcodeadas en texto plano — correcto para
+#   desarrollo local, NUNCA copiar estos valores a un entorno de producción real.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: groomingspa_db
+    environment:
+      POSTGRES_USER: groomingspa_user
+      POSTGRES_PASSWORD: groomingspa_password
+      POSTGRES_DB: groomingspa_db
+    ports:
+      # ¿Qué? Se expone en 5433 (no 5432) porque este equipo ya tiene un PostgreSQL nativo
+      #   de Windows escuchando en el puerto estándar 5432 — evita el conflicto de puertos.
+      - "5433:5432"
+    volumes:
+      - groomingspa_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U groomingspa_user -d groomingspa_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - groomingspa_network
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: groomingspa_mailpit
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI — http://localhost:8025
+    restart: unless-stopped
+    networks:
+      - groomingspa_network
+
+  be:
+    build:
+      context: ./be
+    container_name: groomingspa_be
+    env_file:
+      - ./be/.env
+    environment:
+      # ¿Qué? Sobrescribe los valores de be/.env pensados para ejecución nativa (localhost).
+      # ¿Para qué? Dentro de la red de Docker, los servicios se resuelven por nombre.
+      DATABASE_URL: postgresql://groomingspa_user:groomingspa_password@db:5432/groomingspa_db
+      MAIL_HOST: mailpit
+      FRONTEND_URL: http://localhost:5173
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - groomingspa_network
+
+  fe:
+    build:
+      context: ./fe
+      args:
+        VITE_API_BASE_URL: http://localhost:3000/api/v1
+    container_name: groomingspa_fe
+    ports:
+      - "5173:80"
+    depends_on:
+      - be
+    networks:
+      - groomingspa_network
+
+networks:
+  groomingspa_network:
+    driver: bridge
+
+volumes:
+  groomingspa_data:

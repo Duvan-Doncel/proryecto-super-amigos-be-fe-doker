@@ -1,0 +1,9 @@
+# ¿Qué? Fuerza saltos de línea estilo Unix (LF) para scripts de shell, sin importar la
+#   configuración `core.autocrlf` de quien clone el repo.
+# ¿Para qué? En Windows, `core.autocrlf=true` (el valor por defecto de Git para Windows)
+#   convierte los saltos de línea a CRLF al clonar. Un script .sh con CRLF falla al
+#   ejecutarse dentro de un contenedor Linux con el error "env: can't execute 'sh'" —
+#   justo lo que le pasó a docker-entrypoint.sh en este proyecto.
+# ¿Impacto? Sin esto, cualquiera que clone este repo en Windows y use Docker compartido
+#   (docker compose up) tendría el backend cayéndose al iniciar.
+*.sh text eol=lf

@@ -1,0 +1,142 @@
+/**
+ * Archivo: pages/ResetPasswordPage.tsx
+ * Descripción: Página para restablecer la contraseña usando el token del email (RF-005, HU-005).
+ */
+
+import { useState } from 'react';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import * as authApi from '@/api/auth';
+import { Button } from '@/components/ui/Button';
+import { InputField } from '@/components/ui/InputField';
+import { Alert } from '@/components/ui/Alert';
+
+interface FormData {
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export function ResetPasswordPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const token = searchParams.get('token');
+
+  const [formData, setFormData] = useState<FormData>({ newPassword: '', confirmPassword: '' });
+  const [errors, setErrors] = useState<Partial<FormData>>({});
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setErrors((prev) => ({ ...prev, [e.target.name]: undefined }));
+    setServerError(null);
+  };
+
+  const validate = (): boolean => {
+    const newErrors: Partial<FormData> = {};
+
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(formData.newPassword)) {
+      newErrors.newPassword = 'La contraseña debe tener 8+ caracteres, mayúscula, minúscula y número.';
+    }
+    if (formData.newPassword !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Las contraseñas no coinciden.';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  if (!token) {
+    return (
+      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-sm space-y-4">
+          <Alert type="error" message="Este enlace no tiene un token válido." />
+          <div className="flex justify-end">
+            <Link to="/forgot-password">
+              <Button variant="secondary">Solicitar un nuevo enlace</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validate()) return;
+
+    setIsLoading(true);
+    setServerError(null);
+
+    try {
+      await authApi.resetPassword({ token, newPassword: formData.newPassword });
+      setSuccess(true);
+      setTimeout(() => navigate('/login'), 2500);
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : 'No se pudo restablecer la contraseña.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-sm">
+          <Alert type="success" message="Contraseña restablecida correctamente. Ya puedes iniciar sesión." />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-sm">
+        <div className="mb-8">
+          <h1 className="text-2xl font-comic tracking-wide text-gray-900 dark:text-slate-100 mb-1">
+            Nueva contraseña
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-slate-400">
+            Elige una nueva contraseña para tu cuenta.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          {serverError && <Alert type="error" message={serverError} />}
+
+          <InputField
+            id="newPassword"
+            name="newPassword"
+            label="Nueva contraseña"
+            type="password"
+            autoComplete="new-password"
+            required
+            value={formData.newPassword}
+            onChange={handleChange}
+            placeholder="••••••••"
+            error={errors.newPassword}
+          />
+
+          <InputField
+            id="confirmPassword"
+            name="confirmPassword"
+            label="Confirmar nueva contraseña"
+            type="password"
+            autoComplete="new-password"
+            required
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            placeholder="••••••••"
+            error={errors.confirmPassword}
+          />
+
+          <div className="flex justify-end pt-2">
+            <Button type="submit" isLoading={isLoading}>
+              Restablecer contraseña
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

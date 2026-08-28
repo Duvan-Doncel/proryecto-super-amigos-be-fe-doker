@@ -1,0 +1,122 @@
+/*
+ * Archivo: index.css
+ * Descripción: Estilos globales del frontend NN Auth System.
+ * ¿Para qué? Importar TailwindCSS e inicializar el design system base del proyecto.
+ * ¿Impacto? Sin @import "tailwindcss" ninguna clase de Tailwind funciona.
+ *   Sin @variant dark no funciona el dark mode basado en clase .dark en <html>.
+ */
+
+/* ¿Qué? Importar TailwindCSS v4 completo. */
+@import "tailwindcss";
+
+/*
+ * ¿Qué? Configurar dark mode basado en clase en lugar del media query.
+ * ¿Para qué? Permite que el usuario cambie el tema con un toggle independientemente
+ *   de su preferencia del sistema operativo.
+ * ¿Impacto? El ThemeToggle añade/quita la clase .dark en <html>.
+ *   Si usamos solo prefers-color-scheme el usuario no puede controlar el tema.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * ¿Qué? Color de marca del proyecto — sistema de identidad visual por stack.
+ * ¿Para qué? Cada proyecto del sistema educativo tiene un color de acento distinto
+ *   para que el alumno identifique visualmente en qué stack está trabajando.
+ *   Cambiar SOLO estas líneas adapta toda la paleta de la aplicación al nuevo stack.
+ * ¿Impacto? Todos los componentes usan `brand-*` en lugar de un color hardcodeado.
+ *   Para cambiar el stack: reemplazar los valores de `var(--color-blue-*)` por
+ *   el color del nuevo stack. Colores asignados:
+ *     blue    → Express.js  (este proyecto)
+ *     emerald → FastAPI
+ *     violet  → Next.js fullstack
+ *     amber   → Spring Boot Java
+ *     fuchsia → Spring Boot Kotlin
+ *     cyan    → Go REST API
+ */
+@theme {
+  --color-brand-400: var(--color-blue-400);
+  --color-brand-500: var(--color-blue-500);
+  --color-brand-600: var(--color-blue-600);
+  --color-brand-800: var(--color-blue-800);
+
+  /* ¿Qué? Acento amarillo/dorado del "toque cómic" — junto al azul de marca, evoca la
+   *   dupla clásica de un dúo de superhéroes sin salirse de la paleta ya establecida.
+   * ¿Para qué? Se usa en el offset de comic-shadow y en pequeños detalles de acento
+   *   (nunca como color de texto principal, para no sacrificar contraste/legibilidad). */
+  --color-comic-accent: var(--color-amber-400);
+  --color-comic-accent-dark: var(--color-amber-500);
+}
+
+/*
+ * ¿Qué? Antialiasing global para mejor renderizado de tipografía.
+ * ¿Para qué? Fuentes sans-serif se ven más nítidas en pantallas de alta densidad.
+ */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+/*
+ * ¿Qué? "Toques cómic" — identidad visual de Super Amigos Grooming Spa.
+ * ¿Para qué? El nombre evoca un equipo de superhéroes; estas utilidades aplican esa
+ *   personalidad SOLO en títulos, botones y tarjetas destacadas — el resto de la app
+ *   (formularios, tablas, texto de cuerpo) se mantiene limpio y legible a propósito,
+ *   para que se sienta con carácter sin volverse infantil ni difícil de leer.
+ * ¿Impacto? Cambiar estas reglas actualiza el estilo cómic en TODA la aplicación a la vez.
+ */
+
+/* ¿Qué? Fuente de cómic — solo para títulos grandes (h1) y el nombre de marca. */
+.font-comic {
+  font-family: 'Bangers', 'Segoe UI', system-ui, sans-serif;
+  letter-spacing: 0.03em;
+}
+
+/* ¿Qué? Borde grueso tipo viñeta de cómic — negro en claro, claro en oscuro para
+ *   mantener contraste contra el fondo oscuro (un borde negro se perdería ahí). */
+.comic-border {
+  border-width: 3px;
+  border-color: #000;
+}
+:root[data-theme='dark'] .comic-border,
+:root:not([data-theme='light']) .comic-border {
+  border-color: var(--color-slate-200);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .comic-border {
+    border-color: #000;
+  }
+}
+
+/* ¿Qué? Sombra "offset" dura (sin difuminado) en el acento cómic — el efecto clásico
+ *   de panel de cómic. Al presionar/enfocar, la sombra se reduce y el elemento se
+ *   desplaza hacia ella, simulando que el botón "se hunde" en el papel.
+ * ¿Impacto? Usa el acento ámbar en vez de negro para que se vea bien en ambos temas. */
+.comic-shadow {
+  box-shadow: 4px 4px 0 0 var(--color-comic-accent);
+  transition: box-shadow 150ms ease, transform 150ms ease;
+}
+.comic-shadow:active {
+  box-shadow: 1px 1px 0 0 var(--color-comic-accent);
+  transform: translate(3px, 3px);
+}
+
+/* ¿Qué? Aparición suave para el carrusel de fotos del hero — cada vez que cambia el
+ *   grupo de fotos (cada 5s), el nuevo grupo entra con un pequeño fundido + acercamiento. */
+@keyframes comic-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.comic-fade-in {
+  animation: comic-fade-in 500ms ease-out;
+}

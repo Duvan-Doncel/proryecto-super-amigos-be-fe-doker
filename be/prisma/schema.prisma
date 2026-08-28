@@ -1,0 +1,344 @@
+// Archivo: prisma/schema.prisma
+// Descripción: Definición de tablas de la base de datos de Super Amigos Grooming Spa.
+// ¿Para qué? Centralizar el esquema de BD con tipos TypeScript generados automáticamente.
+// ¿Impacto? Este archivo es la fuente de verdad: la BD y el código TypeScript siempre
+//   están sincronizados gracias a los tipos generados por `prisma generate`.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ¿Qué? Rol del usuario: cliente (dueño de mascota) o staff (personal de GroomingSpa).
+// ¿Para qué? Un mismo login (RF-002) sirve para ambos; el rol decide qué vista y qué permisos aplican.
+// ¿Impacto? Todos los endpoints protegidos verifican este campo antes de autorizar la acción.
+enum UserRole {
+  client
+  staff
+}
+
+enum AppointmentStatus {
+  pending
+  confirmed
+  completed
+  cancelled
+}
+
+enum SymptomReportStatus {
+  pending
+  reviewed
+}
+
+enum OrderStatus {
+  pending
+  completed
+  cancelled
+}
+
+enum PaymentStatus {
+  unpaid
+  paid
+}
+
+enum SupplierOrderStatus {
+  ordered
+  received
+}
+
+// ¿Qué? Especies aceptadas por el negocio para registrar una mascota (RF-012, RN-126).
+// ¿Para qué? Un conjunto cerrado evita variantes inconsistentes ("Perro", "perro", "canino").
+enum PetSpecies {
+  canina
+  felina
+  lagomorfo
+  porcina
+}
+
+// ¿Qué? Tabla de usuarios del sistema (clientes y staff).
+// ¿Para qué? Almacenar las cuentas con contraseña hasheada y el rol de cada una (RF-001, RF-002, RF-008).
+// ¿Impacto? Tabla central del sistema — todos los flujos de auth y de negocio dependen de ella.
+model User {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // ¿Qué? Número de documento (cédula) — obligatorio para clientes, no aplica a staff (RF-001 vs RF-008).
+  documentId      String?  @unique @map("document_id") @db.VarChar(30)
+  firstName       String   @map("first_name") @db.VarChar(100)
+  lastName        String   @map("last_name") @db.VarChar(100)
+  // ¿Qué? Teléfono de contacto — obligatorio para clientes (RN-003 de RF-001), canal principal para confirmar citas.
+  phone           String?  @db.VarChar(30)
+  email           String   @unique @db.VarChar(255)
+  hashedPassword  String   @map("hashed_password") @db.VarChar(255)
+  role            UserRole
+  isEmailVerified Boolean  @default(false) @map("is_email_verified")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @map("updated_at")
+
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  pets                    Pet[]
+  appointments            Appointment[]
+  symptomReports          SymptomReport[]
+  orders                  Order[]
+  sales                   Sale[]                   @relation("SaleClient")
+  salesRegistered         Sale[]                   @relation("SaleRegisteredBy")
+
+  @@map("users")
+}
+
+// ¿Qué? Tokens de recuperación de contraseña (RF-005).
+// ¿Impacto? Sin esta tabla no hay forma de recuperar el acceso a una cuenta con contraseña olvidada.
+model PasswordResetToken {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+// ¿Qué? Tokens de verificación de email tras el registro (RF-003).
+// ¿Impacto? Sin esta tabla, ninguna cuenta recién registrada podría activarse.
+model EmailVerificationToken {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
+}
+
+// ¿Qué? Mascotas registradas por el staff a nombre de un cliente (RF-012).
+// ¿Para qué? Es requisito previo para que el cliente pueda agendar citas o reportar síntomas (RF-009, RF-010).
+// ¿Impacto? Sin una mascota registrada, el cliente no puede usar el semáforo verde ni amarillo.
+model Pet {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId  String     @map("client_id") @db.Uuid
+  name      String     @db.VarChar(100)
+  species   PetSpecies
+  breed     String?    @db.VarChar(100)
+  gender    String?    @db.VarChar(20)
+  age       Int?
+  // ¿Qué? Peso en kilogramos — opcional, algunos clientes no lo conocen al momento del registro.
+  weight    Decimal?   @db.Decimal(5, 2)
+  color     String?    @db.VarChar(50)
+  // ¿Qué? Patología o condición médica preexistente, en texto libre. Si no tiene ninguna,
+  //   el staff escribe "No aplica" en vez de dejarlo vacío — así el reporte de síntomas (RF-018)
+  //   y cualquier revisión futura siempre encuentran un valor explícito, no un campo ambiguo.
+  pathology String     @default("No aplica") @db.VarChar(300)
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  client         User            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  appointments   Appointment[]
+  symptomReports SymptomReport[]
+
+  @@map("pets")
+}
+
+// ¿Qué? Catálogo de servicios de grooming, con precio administrable por el staff (RF-014).
+// ¿Impacto? Los precios se revisan cada año — este catálogo evita tener que tocar código para actualizarlos.
+model Service {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String   @db.VarChar(150)
+  description     String?
+  price           Decimal  @db.Decimal(10, 2)
+  durationMinutes Int      @map("duration_minutes")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  appointments Appointment[]
+
+  @@map("services")
+}
+
+// ¿Qué? Cita de grooming agendada por un cliente — opción verde del semáforo (RF-009).
+// ¿Impacto? Es el flujo de negocio principal de GroomingSpa.
+model Appointment {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId  String            @map("client_id") @db.Uuid
+  petId     String            @map("pet_id") @db.Uuid
+  serviceId String            @map("service_id") @db.Uuid
+  date      DateTime          @db.Date
+  time      String            @db.VarChar(5)
+  status    AppointmentStatus @default(pending)
+  notes     String?
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @default(now()) @map("updated_at")
+
+  client  User    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  pet     Pet     @relation(fields: [petId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@map("appointments")
+}
+
+// ¿Qué? Reporte de síntoma leve — opción amarilla del semáforo (RF-010).
+// ¿Impacto? No incluye diagnóstico ni tratamiento: GroomingSpa no tiene veterinario profesional en planta,
+//   solo una auxiliar en veterinaria que revisa y deja una recomendación de texto libre.
+model SymptomReport {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId        String              @map("client_id") @db.Uuid
+  petId           String              @map("pet_id") @db.Uuid
+  symptom         String
+  daysWithSymptom Int                 @map("days_with_symptom")
+  notes           String?
+  status          SymptomReportStatus @default(pending)
+  recommendation  String?
+  reviewedAt      DateTime?           @map("reviewed_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  client User @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  pet    Pet  @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@map("symptom_reports")
+}
+
+// ¿Qué? Catálogo de productos en venta: juguetes, artículos, medicamentos (RF-015).
+// ¿Impacto? El campo `stock` es la fuente de verdad de existencias — lo ajustan los pedidos (RF-016),
+//   las ventas de mostrador (RF-023) y la recepción de pedidos a proveedor (RF-021).
+model Product {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @db.VarChar(150)
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  stock       Int      @default(0)
+  category    String?  @db.VarChar(50)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  orderItems         OrderItem[]
+  supplierOrderItems SupplierOrderItem[]
+  saleItems          SaleItem[]
+
+  @@map("products")
+}
+
+// ¿Qué? Pedido de productos hecho por un cliente desde el carrito de la app (RF-016).
+// ¿Impacto? No incluye pago en línea — el cliente paga presencialmente al recoger; el staff cierra
+//   el ciclo marcando `status = completed` y `paymentStatus = paid` (RF-019).
+model Order {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId      String        @map("client_id") @db.Uuid
+  status        OrderStatus   @default(pending)
+  paymentStatus PaymentStatus @default(unpaid) @map("payment_status")
+  total         Decimal       @db.Decimal(10, 2)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @default(now()) @map("updated_at")
+
+  client User        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  items  OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId   String  @map("order_id") @db.Uuid
+  productId String  @map("product_id") @db.Uuid
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+// ¿Qué? Proveedores de productos (RF-020).
+model Supplier {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @db.VarChar(150)
+  contactName String?  @map("contact_name") @db.VarChar(150)
+  phone       String?  @db.VarChar(30)
+  email       String?  @db.VarChar(255)
+  address     String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  supplierOrders SupplierOrder[]
+
+  @@map("suppliers")
+}
+
+// ¿Qué? Pedido de reabastecimiento a un proveedor (RF-021).
+// ¿Impacto? Al marcarse `received`, incrementa el stock de los productos — nunca al crearse.
+model SupplierOrder {
+  id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplierId   String              @map("supplier_id") @db.Uuid
+  status       SupplierOrderStatus @default(ordered)
+  expectedDate DateTime?           @map("expected_date") @db.Date
+  receivedDate DateTime?           @map("received_date") @db.Date
+  createdAt    DateTime            @default(now()) @map("created_at")
+
+  supplier Supplier            @relation(fields: [supplierId], references: [id])
+  items    SupplierOrderItem[]
+
+  @@map("supplier_orders")
+}
+
+model SupplierOrderItem {
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplierOrderId String  @map("supplier_order_id") @db.Uuid
+  productId       String  @map("product_id") @db.Uuid
+  quantity        Int
+  unitCost        Decimal @map("unit_cost") @db.Decimal(10, 2)
+
+  supplierOrder SupplierOrder @relation(fields: [supplierOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+
+  @@map("supplier_order_items")
+}
+
+// ¿Qué? Venta registrada por el staff directamente en el mostrador, sin pasar por el carrito (RF-023).
+// ¿Impacto? Se crea ya como completada y pagada — a diferencia de Order, no tiene estado "pendiente".
+model Sale {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // ¿Qué? Cliente con cuenta en el sistema (opcional — puede ser un comprador ocasional sin cuenta).
+  clientId       String?       @map("client_id") @db.Uuid
+  // ¿Qué? Nombre de texto libre cuando el comprador no tiene cuenta registrada.
+  clientName     String?       @map("client_name") @db.VarChar(150)
+  registeredById String        @map("registered_by_id") @db.Uuid
+  status         OrderStatus   @default(completed)
+  paymentStatus  PaymentStatus @default(paid) @map("payment_status")
+  total          Decimal       @db.Decimal(10, 2)
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  client       User?      @relation("SaleClient", fields: [clientId], references: [id])
+  registeredBy User       @relation("SaleRegisteredBy", fields: [registeredById], references: [id])
+  items        SaleItem[]
+
+  @@map("sales")
+}
+
+model SaleItem {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  saleId    String  @map("sale_id") @db.Uuid
+  productId String  @map("product_id") @db.Uuid
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(10, 2)
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("sale_items")
+}
+
+// ¿Qué? Configuración editable por el staff para la opción roja del semáforo (RF-011): números de
+//   emergencia y texto de búsqueda del mapa. Se guarda como una fila única identificada por `key`.
+// ¿Para qué? Evitar hardcodear números de teléfono o claves de API en el frontend.
+model Setting {
+  key       String   @id @db.VarChar(50)
+  value     Json
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  @@map("settings")
+}

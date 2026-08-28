@@ -1,0 +1,93 @@
+<!--
+  ¿Qué? Requisito funcional que describe el registro de una mascota por parte del staff.
+  ¿Para qué? Definir la lógica del endpoint POST /api/v1/pets.
+  ¿Impacto? Sin esto, un cliente nunca podría agendar citas ni reportar síntomas (ver RF-009, RF-010).
+-->
+
+# RF-012 — Registro de Mascota
+
+**Historia de usuario relacionada**: HU-012
+
+## Descripción
+
+El sistema debe permitir que un miembro del staff registre una mascota y la asocie a un cliente
+existente, mediante el endpoint `POST /api/v1/pets`. Este registro es requisito previo para que
+el cliente pueda usar las opciones 🟢 y 🟡 del semáforo (RF-009, RF-010).
+
+---
+
+## Flujo del proceso
+
+| Paso | Descripción                                                                                     |
+| ---- | ------------------------------------------------------------------------------------------------ |
+| 1    | El staff autenticado envía `POST /api/v1/pets` con `{ clientId, name, species, breed, gender, age, weight, color, pathology }`. |
+| 2    | El middleware `authenticate` verifica el JWT y que `role === 'staff'`; si no, retorna HTTP 403.  |
+| 3    | El middleware `validate` verifica el body con el schema Zod `createPetSchema`.                   |
+| 4    | Se verifica que `clientId` exista y tenga `role = 'client'`.                                     |
+| 5    | Si no existe, retorna HTTP 404.                                                                  |
+| 6    | Se inserta la mascota en la tabla `pets` asociada al `clientId`.                                  |
+| 7    | Se retorna HTTP 201 con los datos de la mascota creada.                                          |
+
+---
+
+## Reglas de Negocio
+
+| ID     | Regla                                                                                         |
+| ------ | ------------------------------------------------------------------------------------------------ |
+| RN-120 | Solo un usuario con `role = 'staff'` puede registrar mascotas.                                    |
+| RN-121 | `clientId` debe referenciar un usuario existente con `role = 'client'`.                            |
+| RN-122 | El campo `name` de la mascota es obligatorio.                                                      |
+| RN-123 | El campo `species` es obligatorio y debe ser uno de un conjunto cerrado de valores — no texto libre. |
+| RN-124 | Una mascota siempre pertenece a exactamente un cliente (no se comparte entre varios).              |
+| RN-125 | El campo `pathology` (patología o condición médica preexistente) siempre tiene un valor explícito — si la mascota no tiene ninguna, se guarda el texto "No aplica" en vez de dejarlo vacío. |
+| RN-126 | `species` solo acepta: `canina`, `felina`, `lagomorfo`, `porcina`. En la interfaz del staff se elige de una lista, nunca se escribe a mano. |
+
+---
+
+## Inputs / Outputs
+
+**Input** (body JSON):
+```json
+{
+  "clientId": "uuid",
+  "name": "string",
+  "species": "canina",
+  "breed": "string (opcional)",
+  "gender": "string (opcional)",
+  "age": 3,
+  "weight": 8.5,
+  "color": "string (opcional)",
+  "pathology": "string (opcional, por defecto \"No aplica\")"
+}
+```
+
+**Output éxito** (HTTP 201):
+```json
+{
+  "id": "uuid",
+  "clientId": "uuid",
+  "name": "string",
+  "species": "canina",
+  "breed": "string",
+  "gender": "string",
+  "age": 3,
+  "weight": 8.5,
+  "color": "string",
+  "pathology": "No aplica",
+  "createdAt": "timestamp"
+}
+```
+
+**Output error 403** (quien llama no es staff):
+```json
+{ "error": "Forbidden — staff role required" }
+```
+
+---
+
+## Endpoint
+
+| Método | Ruta            | Auth requerida    | Descripción                    |
+| ------ | --------------- | ------------------ | ---------------------------------- |
+| POST   | `/api/v1/pets`  | Sí (role: staff)   | Registra una mascota para un cliente |
+| GET    | `/api/v1/staff/clients?q=` | Sí (role: staff) | Soporte técnico: busca clientes por nombre, email o documento, para que el staff ubique el `clientId` antes de registrar la mascota (no se espera que lo conozca de memoria). |
