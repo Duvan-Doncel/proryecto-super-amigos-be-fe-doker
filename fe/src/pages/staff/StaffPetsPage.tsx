@@ -1,8 +1,9 @@
 /**
  * Archivo: pages/staff/StaffPetsPage.tsx
- * Descripción: Registro de mascotas a nombre de un cliente existente (RF-012, HU-012).
+ * Descripción: Registro y edición de mascotas a nombre de un cliente existente (RF-012, HU-012).
  * ¿Para qué? Requisito previo para que el cliente pueda usar 🟢 y 🟡 del semáforo
- *   (RF-009, RF-010) — sin esto, esas opciones quedan bloqueadas para él.
+ *   (RF-009, RF-010). El staff también fija aquí los factores de precio del grooming:
+ *   tamaño, tipo de pelo y condiciones de piel (RF-014).
  * ¿Impacto? El staff ubica al cliente por nombre/email/documento (no memoriza UUIDs)
  *   y luego elige la mascota de una lista ya cargada — nunca texto libre para el clientId.
  */
@@ -12,19 +13,30 @@ import { Link } from 'react-router-dom';
 import * as staffApi from '@/api/staff';
 import * as petsApi from '@/api/pets';
 import type { ClientSummary } from '@/types/staff';
-import type { Pet, PetSpecies } from '@/types/pets';
+import type { CoatType, Pet, PetBehavior, PetSize, PetSpecies, SkinConditionType } from '@/types/pets';
+import { SIZE_LABELS, COAT_LABELS, BEHAVIOR_LABELS, SKIN_CONDITION_LABELS } from '@/types/pricing';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { SelectField } from '@/components/ui/SelectField';
 import { Alert } from '@/components/ui/Alert';
 
-// ¿Qué? Especies aceptadas por el negocio — debe coincidir con el enum del backend.
 const SPECIES_OPTIONS: { value: PetSpecies; label: string }[] = [
   { value: 'canina', label: 'Canina' },
   { value: 'felina', label: 'Felina' },
-  { value: 'lagomorfo', label: 'Lagomorfo' },
-  { value: 'porcina', label: 'Porcina' },
 ];
+const SIZE_OPTIONS = Object.entries(SIZE_LABELS) as [PetSize, string][];
+const COAT_OPTIONS = Object.entries(COAT_LABELS) as [CoatType, string][];
+const BEHAVIOR_OPTIONS = Object.entries(BEHAVIOR_LABELS) as [PetBehavior, string][];
+// ¿Qué? Las 6 que suman recargo y las 4 que bloquean la cita — mismo orden que el enum del backend.
+const SURCHARGE_CONDITIONS: SkinConditionType[] = [
+  'pulgas',
+  'garrapatas',
+  'piel_irritada',
+  'alergia',
+  'piel_sensible',
+  'nudos',
+];
+const BLOCKING_CONDITIONS: SkinConditionType[] = ['hongos', 'sarna', 'heridas', 'infeccion'];
 
 interface FormData {
   name: string;
@@ -34,6 +46,10 @@ interface FormData {
   age: string;
   weight: string;
   color: string;
+  size: PetSize | '';
+  coatType: CoatType | '';
+  behavior: PetBehavior | '';
+  skinConditions: SkinConditionType[];
   pathology: string;
 }
 
@@ -45,8 +61,29 @@ const EMPTY_FORM: FormData = {
   age: '',
   weight: '',
   color: '',
+  size: '',
+  coatType: '',
+  behavior: '',
+  skinConditions: [],
   pathology: 'No aplica',
 };
+
+function petToForm(pet: Pet): FormData {
+  return {
+    name: pet.name,
+    species: pet.species,
+    breed: pet.breed ?? '',
+    gender: pet.gender ?? '',
+    age: pet.age != null ? String(pet.age) : '',
+    weight: pet.weight != null ? String(pet.weight) : '',
+    color: pet.color ?? '',
+    size: pet.size ?? '',
+    coatType: pet.coatType ?? '',
+    behavior: pet.behavior ?? '',
+    skinConditions: pet.skinConditions.map((c) => c.type),
+    pathology: pet.pathology,
+  };
+}
 
 export function StaffPetsPage() {
   const [query, setQuery] = useState('');
@@ -54,11 +91,13 @@ export function StaffPetsPage() {
   const [selectedClient, setSelectedClient] = useState<ClientSummary | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
+  // ¿Qué? null = el formulario crea una mascota nueva; un id = está editando esa mascota.
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,13 +122,38 @@ export function StaffPetsPage() {
   const selectClient = (client: ClientSummary) => {
     setSelectedClient(client);
     setResults([]);
-    setSuccess(false);
+    setSuccess(null);
     setError(null);
+    resetForm();
     petsApi.listPetsByClient(client.id).then(setPets);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const resetForm = () => {
+    setFormData(EMPTY_FORM);
+    setEditingId(null);
+  };
+
+  const startEdit = (pet: Pet) => {
+    setFormData(petToForm(pet));
+    setEditingId(pet.id);
+    setSuccess(null);
+    setError(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const toggleCondition = (type: SkinConditionType) => {
+    setFormData((prev) => ({
+      ...prev,
+      skinConditions: prev.skinConditions.includes(type)
+        ? prev.skinConditions.filter((c) => c !== type)
+        : [...prev.skinConditions, type],
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,26 +165,35 @@ export function StaffPetsPage() {
     }
     setIsSubmitting(true);
     setError(null);
-    setSuccess(false);
+    setSuccess(null);
+
+    const payload = {
+      name: formData.name,
+      species: formData.species,
+      breed: formData.breed || undefined,
+      gender: formData.gender || undefined,
+      age: formData.age ? Number(formData.age) : undefined,
+      weight: formData.weight ? Number(formData.weight) : undefined,
+      color: formData.color || undefined,
+      size: formData.size || undefined,
+      coatType: formData.coatType || undefined,
+      behavior: formData.behavior || undefined,
+      skinConditions: formData.skinConditions.map((type) => ({ type })),
+      pathology: formData.pathology.trim() || 'No aplica',
+    };
 
     try {
-      await petsApi.createPet({
-        clientId: selectedClient.id,
-        name: formData.name,
-        species: formData.species,
-        breed: formData.breed || undefined,
-        gender: formData.gender || undefined,
-        age: formData.age ? Number(formData.age) : undefined,
-        weight: formData.weight ? Number(formData.weight) : undefined,
-        color: formData.color || undefined,
-        pathology: formData.pathology.trim() || 'No aplica',
-      });
-      setSuccess(true);
-      setFormData(EMPTY_FORM);
-      const updated = await petsApi.listPetsByClient(selectedClient.id);
-      setPets(updated);
+      if (editingId) {
+        await petsApi.updatePet(editingId, payload);
+        setSuccess('Cambios guardados.');
+      } else {
+        await petsApi.createPet({ clientId: selectedClient.id, ...payload });
+        setSuccess('Mascota registrada correctamente.');
+      }
+      resetForm();
+      setPets(await petsApi.listPetsByClient(selectedClient.id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo registrar la mascota.');
+      setError(err instanceof Error ? err.message : 'No se pudo guardar la mascota.');
     } finally {
       setIsSubmitting(false);
     }
@@ -190,12 +263,21 @@ export function StaffPetsPage() {
 
           {success && (
             <div className="mb-4">
-              <Alert type="success" message="Mascota registrada correctamente." />
+              <Alert type="success" message={success} />
             </div>
           )}
 
           <form onSubmit={handleSubmit} noValidate className="space-y-4 mb-10">
             {error && <Alert type="error" message={error} />}
+
+            {editingId && (
+              <p className="text-sm text-brand-700 dark:text-brand-300">
+                Editando una mascota existente.{' '}
+                <button type="button" onClick={resetForm} className="underline">
+                  Cancelar y registrar una nueva
+                </button>
+              </p>
+            )}
 
             <InputField
               id="name"
@@ -263,9 +345,98 @@ export function StaffPetsPage() {
               placeholder="Ej: Café con blanco"
             />
 
+            {/* ─── Factores de precio del grooming (RF-014) ─── */}
+            <div className="rounded-lg border border-gray-200 dark:border-slate-700 p-4 space-y-4">
+              <p className="text-sm font-medium text-gray-700 dark:text-slate-300">
+                Datos para el precio del grooming
+              </p>
+
+              <SelectField
+                id="size"
+                name="size"
+                label="Tamaño"
+                value={formData.size}
+                onChange={handleChange}
+              >
+                <option value="">Sugerir desde el peso</option>
+                {SIZE_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </SelectField>
+              <p className="-mt-2 text-xs text-gray-500 dark:text-slate-400">
+                Si lo dejas en “Sugerir desde el peso”, el sistema clasifica la talla según los
+                kilos registrados.
+              </p>
+
+              <SelectField
+                id="coatType"
+                name="coatType"
+                label="Tipo de pelo"
+                value={formData.coatType}
+                onChange={handleChange}
+              >
+                <option value="">Sin especificar</option>
+                {COAT_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </SelectField>
+
+              <SelectField
+                id="behavior"
+                name="behavior"
+                label="Comportamiento"
+                value={formData.behavior}
+                onChange={handleChange}
+              >
+                <option value="">Sin especificar</option>
+                {BEHAVIOR_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </SelectField>
+              <p className="-mt-2 text-xs text-gray-500 dark:text-slate-400">
+                “Agresivo” impide que el cliente agende en la app — primero se evalúa a la
+                mascota en persona.
+              </p>
+
+              <fieldset>
+                <legend className="text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
+                  Condiciones de piel
+                </legend>
+                <div className="space-y-1.5">
+                  {SURCHARGE_CONDITIONS.map((type) => (
+                    <label key={type} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={formData.skinConditions.includes(type)}
+                        onChange={() => toggleCondition(type)}
+                        className="rounded border-gray-300 dark:border-slate-600 text-brand-600 focus:ring-brand-500"
+                      />
+                      {SKIN_CONDITION_LABELS[type]}
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-2 mb-1 text-xs font-medium text-red-700 dark:text-red-400">
+                  Requieren revisión antes de un baño (el cliente no podrá agendar):
+                </p>
+                <div className="space-y-1.5">
+                  {BLOCKING_CONDITIONS.map((type) => (
+                    <label key={type} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={formData.skinConditions.includes(type)}
+                        onChange={() => toggleCondition(type)}
+                        className="rounded border-gray-300 dark:border-slate-600 text-red-600 focus:ring-red-500"
+                      />
+                      {SKIN_CONDITION_LABELS[type]}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            </div>
+
             <div className="flex flex-col gap-1.5">
               <label htmlFor="pathology" className="text-sm font-medium text-gray-700 dark:text-slate-300">
-                ¿Tiene alguna patología?
+                Notas de patología
               </label>
               <textarea
                 id="pathology"
@@ -276,12 +447,14 @@ export function StaffPetsPage() {
                 className="w-full px-3 py-2 text-sm rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 border border-gray-300 dark:border-slate-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-0"
               />
               <p className="text-xs text-gray-500 dark:text-slate-400">
-                Si no tiene ninguna, deja escrito "No aplica".
+                Texto libre para el historial. Si no tiene ninguna, deja escrito “No aplica”.
               </p>
             </div>
 
             <div className="flex justify-end pt-2">
-              <Button type="submit" isLoading={isSubmitting}>Registrar mascota</Button>
+              <Button type="submit" isLoading={isSubmitting}>
+                {editingId ? 'Guardar cambios' : 'Registrar mascota'}
+              </Button>
             </div>
           </form>
 
@@ -294,17 +467,33 @@ export function StaffPetsPage() {
             <ul className="space-y-2">
               {pets.map((p) => (
                 <li key={p.id} className="rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm">
-                  <p>
-                    <span className="font-medium text-gray-900 dark:text-slate-100">{p.name}</span>
-                    <span className="text-gray-500 dark:text-slate-400">
-                      {' '}— {SPECIES_OPTIONS.find((opt) => opt.value === p.species)?.label ?? p.species}
-                      {p.breed ? `, ${p.breed}` : ''}
-                      {p.age != null ? `, ${p.age} año(s)` : ''}
-                      {p.weight != null ? `, ${p.weight} kg` : ''}
-                      {p.color ? `, ${p.color}` : ''}
-                    </span>
-                  </p>
-                  <p className="text-gray-500 dark:text-slate-400">Patología: {p.pathology}</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p>
+                        <span className="font-medium text-gray-900 dark:text-slate-100">{p.name}</span>
+                        <span className="text-gray-500 dark:text-slate-400">
+                          {' '}— {SPECIES_OPTIONS.find((opt) => opt.value === p.species)?.label ?? p.species}
+                          {p.breed ? `, ${p.breed}` : ''}
+                          {p.weight != null ? `, ${p.weight} kg` : ''}
+                          {p.size ? `, ${SIZE_LABELS[p.size].toLowerCase()}` : ''}
+                          {p.coatType ? `, pelo ${COAT_LABELS[p.coatType].toLowerCase()}` : ''}
+                          {p.behavior ? `, ${BEHAVIOR_LABELS[p.behavior].toLowerCase()}` : ''}
+                        </span>
+                      </p>
+                      {p.skinConditions.length > 0 && (
+                        <p className="mt-1 text-gray-500 dark:text-slate-400">
+                          Piel: {p.skinConditions.map((c) => SKIN_CONDITION_LABELS[c.type]).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => startEdit(p)}
+                      className="shrink-0 text-brand-600 dark:text-brand-400 hover:underline"
+                    >
+                      Editar
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>

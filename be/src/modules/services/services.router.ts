@@ -8,7 +8,9 @@ import { Router, type IRouter } from 'express';
 import { authenticate, requireRole } from '../../middlewares/auth.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
 import { createServiceSchema, updateServiceSchema } from './services.schema.js';
+import { updateServiceModifiersSchema } from '../pricing/pricing.schema.js';
 import * as servicesController from './services.controller.js';
+import * as pricingController from '../pricing/pricing.controller.js';
 
 const router: IRouter = Router();
 
@@ -34,6 +36,15 @@ router.put(
   requireRole('staff'),
   validate(updateServiceSchema),
   servicesController.update,
+);
+
+// PUT /api/v1/services/:id/modifiers — recargos por tamaño y pelo de este servicio (RF-014, solo staff)
+router.put(
+  '/:id/modifiers',
+  authenticate,
+  requireRole('staff'),
+  validate(updateServiceModifiersSchema),
+  pricingController.putServiceModifiers,
 );
 
 // DELETE /api/v1/services/:id — elimina o desactiva un servicio (solo staff)

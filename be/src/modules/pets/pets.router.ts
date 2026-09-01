@@ -8,7 +8,7 @@
 import { Router, type IRouter } from 'express';
 import { authenticate, requireRole } from '../../middlewares/auth.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
-import { createPetSchema } from './pets.schema.js';
+import { createPetSchema, updatePetSchema } from './pets.schema.js';
 import * as petsController from './pets.controller.js';
 
 const router: IRouter = Router();
@@ -21,5 +21,8 @@ router.get('/', authenticate, requireRole('staff'), petsController.listPetsForCl
 
 // POST /api/v1/pets — Registra una mascota a nombre de un cliente (RF-012, solo staff)
 router.post('/', authenticate, requireRole('staff'), validate(createPetSchema), petsController.createPet);
+
+// PUT /api/v1/pets/:id — Edita una mascota: talla, pelo, condiciones de piel (RF-012, solo staff)
+router.put('/:id', authenticate, requireRole('staff'), validate(updatePetSchema), petsController.updatePet);
 
 export default router;

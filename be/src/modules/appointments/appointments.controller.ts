@@ -6,7 +6,11 @@
 import type { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as appointmentsService from './appointments.service.js';
-import type { CreateAppointmentInput, UpdateAppointmentStatusInput } from './appointments.schema.js';
+import type {
+  CreateAppointmentInput,
+  QuoteAppointmentInput,
+  UpdateAppointmentStatusInput,
+} from './appointments.schema.js';
 import { ValidationError } from '../../middlewares/error.middleware.js';
 
 const dateQuerySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha debe tener el formato AAAA-MM-DD.');
@@ -34,6 +38,17 @@ export async function create(req: Request, res: Response, next: NextFunction): P
       req.body as CreateAppointmentInput,
     );
     res.status(201).json({ success: true, data: appointment });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ¿Qué? Estimador de precio (RF-009) — devuelve el desglose sin crear la cita.
+export async function quote(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { petId, serviceId } = req.body as QuoteAppointmentInput;
+    const breakdown = await appointmentsService.quoteAppointment(req.user!.id, petId, serviceId);
+    res.status(200).json({ success: true, data: breakdown });
   } catch (err) {
     next(err);
   }

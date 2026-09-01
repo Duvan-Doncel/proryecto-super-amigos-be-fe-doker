@@ -6,10 +6,15 @@
  * ¿Impacto? Es el flujo de negocio principal de GroomingSpa.
  */
 
-import type { Appointment } from '@prisma/client';
+import type { Appointment, Prisma } from '@prisma/client';
 import { db } from '../../db/index.js';
-import { NotFoundError, BadRequestError } from '../../middlewares/error.middleware.js';
+import {
+  NotFoundError,
+  BadRequestError,
+  PetConditionBlockedError,
+} from '../../middlewares/error.middleware.js';
 import { assertPetBelongsToClient } from '../pets/pets.service.js';
+import { calculatePrice, type PriceBreakdown } from '../pricing/pricing.service.js';
 import type { CreateAppointmentInput, UpdateAppointmentStatusInput } from './appointments.schema.js';
 
 export interface AppointmentResponse {
@@ -21,6 +26,8 @@ export interface AppointmentResponse {
   time: string;
   status: string;
   notes: string | null;
+  totalPrice: number | null;
+  priceBreakdown: PriceBreakdown | null;
   createdAt: Date;
 }
 
@@ -38,6 +45,8 @@ function toAppointmentResponse(appt: Appointment): AppointmentResponse {
     time: appt.time,
     status: appt.status,
     notes: appt.notes,
+    totalPrice: appt.totalPrice != null ? Number(appt.totalPrice) : null,
+    priceBreakdown: (appt.priceBreakdown as PriceBreakdown | null) ?? null,
     createdAt: appt.createdAt,
   };
 }
@@ -85,6 +94,16 @@ export async function createAppointment(
     throw new NotFoundError('Servicio no encontrado o inactivo.');
   }
 
+  // RN-098: el precio se calcula según la mascota (tamaño, pelo, condiciones de piel) y se
+  //   CONGELA en la cita. RN-099: si la mascota tiene una condición que exige revisión
+  //   veterinaria previa, la cita no se agenda — se deriva al reporte de síntoma (RF-010).
+  const breakdown = await calculatePrice(data.serviceId, data.petId);
+  if (breakdown.blocked) {
+    throw new PetConditionBlockedError(
+      `Antes de un baño, ${breakdown.petName} necesita una revisión por: ${breakdown.blockingConditions.join(', ')}. Reportá el síntoma para que el personal lo revise.`,
+    );
+  }
+
   const appointment = await db.appointment.create({
     data: {
       clientId,
@@ -93,10 +112,31 @@ export async function createAppointment(
       date: new Date(`${data.date}T00:00:00.000Z`),
       time: data.time,
       notes: data.notes,
+      totalPrice: breakdown.total,
+      priceBreakdown: breakdown as unknown as Prisma.InputJsonValue,
     },
   });
 
   return toAppointmentResponse(appointment);
+}
+
+// ¿Qué? Estimador de precio (RF-009): calcula el desglose sin crear la cita.
+// ¿Para qué? El frontend lo llama al elegir mascota + servicio para mostrar el total estimado.
+// ¿Impacto? A diferencia de crear la cita, acá `blocked = true` NO es un error — se devuelve
+//   el desglose con la bandera para que la UI muestre el aviso y el enlace al RF-010.
+export async function quoteAppointment(
+  clientId: string,
+  petId: string,
+  serviceId: string,
+): Promise<PriceBreakdown> {
+  await assertPetBelongsToClient(petId, clientId);
+
+  const service = await db.service.findUnique({ where: { id: serviceId } });
+  if (!service || !service.active) {
+    throw new NotFoundError('Servicio no encontrado o inactivo.');
+  }
+
+  return calculatePrice(serviceId, petId);
 }
 
 // ¿Qué? Lista las citas del cliente autenticado, más recientes primero.

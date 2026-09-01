@@ -50,6 +50,9 @@ La cita queda con estado inicial `pending` hasta que el staff la confirme desde 
 | RN-095 | Toda cita nueva se crea con `status = 'pending'`.                                                 |
 | RN-096 | Los estados posibles de una cita son: `pending`, `confirmed`, `completed`, `cancelled`.            |
 | RN-097 | Solo el staff puede cambiar el `status` de una cita (ver RF-017) — el cliente no puede autoconfirmarse. |
+| RN-098 | Al agendar, el precio se calcula según la mascota (precio base del servicio + recargo por tamaño + recargo por tipo de pelo + recargos por condición de piel, ver RF-014) y se **congela** en la cita (`totalPrice`, `priceBreakdown`). Editar el tarifario después no altera citas ya creadas. |
+| RN-099 | Si la mascota tiene un factor marcado como `blocksBooking` — una condición de piel (hongos, sarna, heridas, infección) **o** el comportamiento `agresivo` — la cita **no se crea**: se responde HTTP 409 `PET_CONDITION_BLOCKS_BOOKING` y el frontend deriva al reporte de síntoma (RF-010). Super Amigos no tiene veterinario en planta y no puede manejar un animal agresivo sin evaluación previa. |
+| RN-100 | `POST /api/v1/appointments/quote` devuelve el mismo desglose sin crear la cita — alimenta el estimador que ve el cliente. Con una condición que bloquea, `blocked = true` **no** es un error: se devuelve el desglose con la bandera. |
 
 ---
 

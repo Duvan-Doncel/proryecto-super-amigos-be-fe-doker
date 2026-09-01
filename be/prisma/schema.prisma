@@ -53,8 +53,52 @@ enum SupplierOrderStatus {
 enum PetSpecies {
   canina
   felina
-  lagomorfo
-  porcina
+}
+
+// ¿Qué? Tramo de tamaño de la mascota — factor de precio del grooming (RF-014).
+// ¿Para qué? El precio de un baño depende del porte: un perro grande lleva más tiempo y producto.
+// ¿Impacto? Se sugiere automáticamente desde `Pet.weight` (ver tabla SizeTier) y el staff la ajusta.
+enum PetSize {
+  pequeno
+  mediano
+  grande
+  gigante
+}
+
+// ¿Qué? Largo del pelo — factor de precio: el pelo largo necesita desenredado y secado extendido.
+enum CoatType {
+  corto
+  largo
+}
+
+// ¿Qué? Etiquetas estructuradas de condición de piel de la mascota (RF-012, RF-014).
+// ¿Para qué? Reemplazan al texto libre de `Pet.pathology` para poder calcular recargos y
+//   para saber cuándo una cita de grooming NO se puede agendar sin revisión previa (RF-010).
+// ¿Impacto? Las primeras suman un recargo (SkinConditionRule.amount); las últimas
+//   (`blocksBooking = true`) bloquean el agendamiento y derivan al reporte de síntoma.
+enum SkinConditionType {
+  pulgas
+  garrapatas
+  piel_irritada
+  alergia
+  piel_sensible
+  // ¿Qué? Pelo muy enredado / con nudos — más frecuente en gatos y perros de pelo largo;
+  //   lleva mucho más trabajo de cepillado y a veces rasurado.
+  nudos
+  hongos
+  sarna
+  heridas
+  infeccion
+}
+
+// ¿Qué? Comportamiento de la mascota durante el grooming — factor de precio (RF-014).
+// ¿Para qué? Un animal nervioso lleva más tiempo; uno agresivo necesita dos personas o
+//   no puede manejarse con seguridad en el local. Aplica a perros y gatos.
+// ¿Impacto? El recargo (o el bloqueo) lo define BehaviorRule, editable por el admin.
+enum PetBehavior {
+  tranquilo
+  nervioso
+  agresivo
 }
 
 // ¿Qué? Tabla de usuarios del sistema (clientes y staff).
@@ -131,17 +175,44 @@ model Pet {
   // ¿Qué? Peso en kilogramos — opcional, algunos clientes no lo conocen al momento del registro.
   weight    Decimal?   @db.Decimal(5, 2)
   color     String?    @db.VarChar(50)
+  // ¿Qué? Tramo de tamaño usado para calcular el precio del grooming (RF-014). Se sugiere
+  //   desde `weight` (con tramos propios por especie) pero el staff puede fijarlo a mano.
+  size      PetSize?
+  // ¿Qué? Largo del pelo — otro factor de precio junto con el tamaño.
+  coatType  CoatType?    @map("coat_type")
+  // ¿Qué? Comportamiento durante el grooming — factor de precio y, si es `agresivo`,
+  //   posible bloqueo de la cita (ver BehaviorRule).
+  behavior  PetBehavior?
   // ¿Qué? Patología o condición médica preexistente, en texto libre. Si no tiene ninguna,
   //   el staff escribe "No aplica" en vez de dejarlo vacío — así el reporte de síntomas (RF-018)
   //   y cualquier revisión futura siempre encuentran un valor explícito, no un campo ambiguo.
   pathology String     @default("No aplica") @db.VarChar(300)
   createdAt DateTime   @default(now()) @map("created_at")
 
-  client         User            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client         User               @relation(fields: [clientId], references: [id], onDelete: Cascade)
   appointments   Appointment[]
   symptomReports SymptomReport[]
+  skinConditions PetSkinCondition[]
 
   @@map("pets")
+}
+
+// ¿Qué? Condición de piel concreta de una mascota — una fila por etiqueta activa (RF-012).
+// ¿Para qué? El motor de precios (RF-014) suma un recargo por cada una, y RF-009 bloquea
+//   la cita si alguna es de las que exigen revisión veterinaria previa.
+// ¿Impacto? El staff las marca/desmarca desde la ficha de la mascota. Reemplazan, para efectos
+//   de cálculo, al texto libre de `Pet.pathology`, que queda solo como nota.
+model PetSkinCondition {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  petId     String            @map("pet_id") @db.Uuid
+  type      SkinConditionType
+  note      String?           @db.VarChar(300)
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@unique([petId, type])
+  @@map("pet_skin_conditions")
 }
 
 // ¿Qué? Catálogo de servicios de grooming, con precio administrable por el staff (RF-014).
@@ -150,14 +221,91 @@ model Service {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name            String   @db.VarChar(150)
   description     String?
+  // ¿Qué? Precio BASE del servicio: mascota de tamaño `pequeno`, pelo `corto` y sin recargos de piel.
+  //   Los modificadores de abajo se suman encima según la mascota concreta.
   price           Decimal  @db.Decimal(10, 2)
   durationMinutes Int      @map("duration_minutes")
   active          Boolean  @default(true)
   createdAt       DateTime @default(now()) @map("created_at")
 
-  appointments Appointment[]
+  appointments   Appointment[]
+  sizeModifiers  ServiceSizeModifier[]
+  coatModifiers  ServiceCoatModifier[]
 
   @@map("services")
+}
+
+// ¿Qué? Recargo que se suma al precio base de un servicio según el tamaño de la mascota,
+//   diferenciado por especie: un "grande" perro y un "grande" gato pueden costar distinto.
+// ¿Para qué? Precio a la medida sin duplicar el servicio en el catálogo (RF-014). Lo edita el admin.
+// ¿Impacto? Si no existe fila para un (servicio, especie, tamaño), el recargo es 0.
+model ServiceSizeModifier {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  serviceId String     @map("service_id") @db.Uuid
+  species   PetSpecies
+  size      PetSize
+  amount    Decimal    @db.Decimal(10, 2)
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, species, size])
+  @@map("service_size_modifiers")
+}
+
+// ¿Qué? Recargo por largo del pelo, también diferenciado por especie (un gato persa ≠ un perro peludo).
+// ¿Impacto? Si no existe fila para un (servicio, especie, coatType), el recargo es 0.
+model ServiceCoatModifier {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  serviceId String     @map("service_id") @db.Uuid
+  species   PetSpecies
+  coatType  CoatType   @map("coat_type")
+  amount    Decimal    @db.Decimal(10, 2)
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, species, coatType])
+  @@map("service_coat_modifiers")
+}
+
+// ¿Qué? Regla global por cada etiqueta de condición de piel: cuánto recarga y si bloquea la cita.
+// ¿Para qué? Centraliza en un solo lugar (editable por el admin) el efecto de cada condición,
+//   en vez de repetirlo por servicio. `blocksBooking = true` deriva la cita al reporte de síntoma.
+// ¿Impacto? Hay exactamente una fila por valor del enum SkinConditionType (se siembran en la migración).
+model SkinConditionRule {
+  type          SkinConditionType @id
+  label         String            @db.VarChar(100)
+  amount        Decimal           @default(0) @db.Decimal(10, 2)
+  blocksBooking Boolean           @default(false) @map("blocks_booking")
+
+  @@map("skin_condition_rules")
+}
+
+// ¿Qué? Regla global por nivel de comportamiento: cuánto recarga y si bloquea la cita.
+// ¿Para qué? Un gato/perro nervioso lleva más tiempo; uno agresivo no puede manejarse con
+//   seguridad en el local y debe evaluarse en persona (blocksBooking = true).
+// ¿Impacto? Una fila por valor del enum PetBehavior (se siembran en la migración).
+model BehaviorRule {
+  behavior      PetBehavior @id
+  label         String      @db.VarChar(100)
+  amount        Decimal     @default(0) @db.Decimal(10, 2)
+  blocksBooking Boolean     @default(false) @map("blocks_booking")
+
+  @@map("behavior_rules")
+}
+
+// ¿Qué? Tramos de tamaño con peso máximo (kg), SEPARADOS por especie — un gato de 6 kg es
+//   "grande" pero un perro de 6 kg es "pequeño".
+// ¿Para qué? Los cortes los define el negocio y cambian con el tiempo — viven en la BD.
+//   El tramo mayor de cada especie tiene `maxWeight = null`.
+// ¿Impacto? Una fila por (especie, tamaño). Se siembran en la migración.
+model SizeTier {
+  species   PetSpecies
+  size      PetSize
+  label     String     @db.VarChar(50)
+  maxWeight Decimal?   @map("max_weight") @db.Decimal(5, 2)
+
+  @@id([species, size])
+  @@map("size_tiers")
 }
 
 // ¿Qué? Cita de grooming agendada por un cliente — opción verde del semáforo (RF-009).
@@ -171,6 +319,12 @@ model Appointment {
   time      String            @db.VarChar(5)
   status    AppointmentStatus @default(pending)
   notes     String?
+  // ¿Qué? Precio total y su desglose, CONGELADOS al momento de agendar (RF-009).
+  // ¿Para qué? Si el admin cambia el tarifario después, esta cita conserva lo que vio el cliente;
+  //   el reporte de ventas (RF-022) sigue siendo correcto históricamente.
+  // ¿Impacto? Nulos solo en citas creadas antes de existir el motor de precios.
+  totalPrice     Decimal? @map("total_price") @db.Decimal(10, 2)
+  priceBreakdown Json?    @map("price_breakdown")
   createdAt DateTime          @default(now()) @map("created_at")
   updatedAt DateTime          @default(now()) @map("updated_at")
 

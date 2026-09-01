@@ -17,6 +17,7 @@ import usersRouter from './modules/users/users.router.js';
 import staffRouter from './modules/staff/staff.router.js';
 import petsRouter from './modules/pets/pets.router.js';
 import servicesRouter from './modules/services/services.router.js';
+import pricingRouter from './modules/pricing/pricing.router.js';
 import appointmentsRouter, { staffAgendaRouter } from './modules/appointments/appointments.router.js';
 import {
   clientRouter as symptomReportsClientRouter,
@@ -83,6 +84,7 @@ app.use('/api/v1/users', usersRouter);
 app.use('/api/v1/staff', staffRouter);
 app.use('/api/v1/pets', petsRouter);
 app.use('/api/v1/services', servicesRouter);
+app.use('/api/v1/pricing', pricingRouter);
 app.use('/api/v1/appointments', appointmentsRouter);
 app.use('/api/v1/symptom-reports', symptomReportsClientRouter);
 app.use('/api/v1/staff/symptom-reports', symptomReportsStaffRouter);

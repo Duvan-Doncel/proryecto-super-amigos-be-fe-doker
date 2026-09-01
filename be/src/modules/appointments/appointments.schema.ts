@@ -20,6 +20,14 @@ export const createAppointmentSchema = z.object({
 
 export type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
 
+// ¿Qué? Body del estimador de precio — POST /api/v1/appointments/quote (RF-009).
+export const quoteAppointmentSchema = z.object({
+  petId: z.string().uuid('El petId debe ser un UUID válido.'),
+  serviceId: z.string().uuid('El serviceId debe ser un UUID válido.'),
+});
+
+export type QuoteAppointmentInput = z.infer<typeof quoteAppointmentSchema>;
+
 export const updateAppointmentStatusSchema = z.object({
   status: z.enum(['confirmed', 'completed', 'cancelled'], {
     errorMap: () => ({ message: "El estado debe ser 'confirmed', 'completed' o 'cancelled'." }),

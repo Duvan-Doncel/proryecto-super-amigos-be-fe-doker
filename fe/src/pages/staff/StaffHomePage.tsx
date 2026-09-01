@@ -74,6 +74,12 @@ export function StaffHomePage() {
           description="Crear y editar servicios de grooming y sus precios."
         />
         <SectionCard
+          to="/staff/tarifario"
+          emoji="💲"
+          title="Tarifario de grooming"
+          description="Ajustar recargos por tamaño, tipo de pelo y condiciones de piel."
+        />
+        <SectionCard
           to="/staff/productos"
           emoji="🛒"
           title="Catálogo de productos"

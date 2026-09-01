@@ -41,6 +41,14 @@ para elegir un servicio al agendar una cita (RF-009).
 | RN-143 | Un servicio con citas asociadas no se elimina físicamente — se desactiva (`active = false`).      |
 | RN-144 | El endpoint público `GET /api/v1/services` solo retorna servicios con `active = true` por defecto. |
 | RN-145 | El staff puede consultar también los servicios inactivos con `GET /api/v1/services?active=false`. |
+| RN-146 | El `price` de un servicio es su **precio base**: mascota de tamaño `pequeno`, pelo `corto` y sin condiciones de piel. El precio final = base + recargo por tamaño + recargo por tipo de pelo + recargos por condición de piel. |
+| RN-147 | Los recargos por tamaño y pelo se guardan por servicio (`PUT /api/v1/services/:id/modifiers`); las reglas por condición de piel (`amount`, `blocksBooking`) y los tramos de peso son globales (`PUT /api/v1/pricing/skin-rules`, `PUT /api/v1/pricing/size-tiers`). Todo editable solo por staff, sin tocar código. |
+| RN-148 | Si no existe un modificador para un par (servicio, tamaño) o (servicio, pelo), el recargo es 0. Un servicio puede así no variar por tamaño ni por pelo. |
+| RN-149 | Todos los recargos son ≥ 0; el precio base es > 0. |
+| RN-150 | `GET /api/v1/pricing/public` expone el tarifario completo sin autenticación, para la página "Cómo calculamos el precio". |
+| RN-151 | La talla de la mascota (`Pet.size`) se sugiere desde `Pet.weight` según la tabla `size_tiers`, pero el staff puede fijarla a mano (RF-012). El tramo mayor (`gigante`) no tiene tope de peso. |
+| RN-152 | Los tramos de peso (`size_tiers`) y los recargos por tamaño/pelo de cada servicio son **propios por especie** (`canina` / `felina`): un gato de 6 kg es "grande" pero un perro de 6 kg es "pequeño", y "gato grande" puede recargar distinto que "perro grande". Las reglas de piel y de comportamiento son globales. |
+| RN-153 | El comportamiento de la mascota (`Pet.behavior`: `tranquilo` / `nervioso` / `agresivo`) es un factor de precio con regla global editable (`behavior_rules`: `amount`, `blocksBooking`) vía `PUT /api/v1/pricing/behavior-rules`. Por defecto `agresivo` tiene `blocksBooking = true` — impide agendar y deriva a evaluación en persona (RF-009 RN-099). |
 
 ---
 

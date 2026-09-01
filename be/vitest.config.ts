@@ -25,6 +25,12 @@ export default defineConfig({
     // ¿Para qué? Los tests del backend usan APIs de Node — net, crypto, etc.
     environment: 'node',
 
+    // ¿Qué? Ejecuta los archivos de test de a uno, nunca en paralelo.
+    // ¿Para qué? Todos comparten la MISMA base de datos de tests y el setup la limpia
+    //   entre cada test (beforeEach). Con archivos en paralelo, el `deleteMany` de un
+    //   archivo borra los datos que otro está usando → fallos intermitentes.
+    fileParallelism: false,
+
     // ¿Qué? Archivos que se ejecutan antes de cada suite de tests.
     // ¿Para qué? El setup.ts limpia la BD entre tests para garantizar aislamiento.
     setupFiles: ['./src/tests/setup.ts'],

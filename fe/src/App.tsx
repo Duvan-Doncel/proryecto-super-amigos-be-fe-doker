@@ -18,6 +18,7 @@ import { ChangePasswordPage } from '@/pages/ChangePasswordPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
+import { PricingInfoPage } from '@/pages/PricingInfoPage';
 import { ClientHomePage } from '@/pages/client/ClientHomePage';
 import { AppointmentPage } from '@/pages/client/AppointmentPage';
 import { SymptomReportPage } from '@/pages/client/SymptomReportPage';
@@ -28,6 +29,7 @@ import { StaffAgendaPage } from '@/pages/staff/StaffAgendaPage';
 import { StaffPetsPage } from '@/pages/staff/StaffPetsPage';
 import { StaffSymptomsPage } from '@/pages/staff/StaffSymptomsPage';
 import { StaffServicesPage } from '@/pages/staff/StaffServicesPage';
+import { StaffPricingPage } from '@/pages/staff/StaffPricingPage';
 import { StaffProductsPage } from '@/pages/staff/StaffProductsPage';
 import { StaffOrdersPage } from '@/pages/staff/StaffOrdersPage';
 import { StaffSuppliersPage } from '@/pages/staff/StaffSuppliersPage';
@@ -48,6 +50,7 @@ function App() {
           <Route path="/forgot-password" element={<Layout><ForgotPasswordPage /></Layout>} />
           <Route path="/reset-password" element={<Layout><ResetPasswordPage /></Layout>} />
           <Route path="/verify-email" element={<Layout><VerifyEmailPage /></Layout>} />
+          <Route path="/precios" element={<Layout><PricingInfoPage /></Layout>} />
 
           {/* ─── Zona del cliente — solo role: client ─── */}
           <Route
@@ -129,6 +132,14 @@ function App() {
             element={
               <ProtectedRoute role="staff">
                 <Layout><StaffServicesPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/staff/tarifario"
+            element={
+              <ProtectedRoute role="staff">
+                <Layout><StaffPricingPage /></Layout>
               </ProtectedRoute>
             }
           />

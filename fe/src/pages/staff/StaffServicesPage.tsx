@@ -111,6 +111,15 @@ export function StaffServicesPage() {
         </div>
       )}
 
+      <p className="mb-4 text-sm text-gray-500 dark:text-slate-400">
+        El precio de aquí es el <strong>precio base</strong> (mascota pequeña, pelo corto, sin
+        condiciones). Los recargos por tamaño, pelo y piel se ajustan en el{' '}
+        <Link to="/staff/tarifario" className="text-brand-600 dark:text-brand-400 hover:underline">
+          tarifario de grooming
+        </Link>
+        .
+      </p>
+
       <form onSubmit={handleSubmit} noValidate className="space-y-4 mb-10">
         <InputField
           id="name"
@@ -170,7 +179,7 @@ export function StaffServicesPage() {
             >
               <div className="flex items-center justify-between">
                 <span className="font-medium text-gray-900 dark:text-slate-100">
-                  {s.name} — ${s.price.toLocaleString('es-CO')} ({s.durationMinutes} min)
+                  {s.name} — desde ${s.price.toLocaleString('es-CO')} ({s.durationMinutes} min)
                 </span>
                 <span className="text-xs text-gray-500 dark:text-slate-400">
                   {s.active ? 'Activo' : 'Inactivo'}

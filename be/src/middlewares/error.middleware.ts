@@ -65,6 +65,14 @@ export class BadRequestError extends AppError {
   constructor(message: string) { super(message, 400, 'BAD_REQUEST'); }
 }
 
+// ¿Qué? 409 Conflict con un código propio: la mascota tiene una condición de piel que exige
+//   revisión veterinaria antes de un baño (hongos, sarna, heridas, infección) — RF-009 / RF-010.
+// ¿Para qué? El frontend detecta `code === 'PET_CONDITION_BLOCKS_BOOKING'` y, en vez de mostrar
+//   un error genérico, redirige al flujo de "Reportar un síntoma" (el 🟡 del semáforo).
+export class PetConditionBlockedError extends AppError {
+  constructor(message: string) { super(message, 409, 'PET_CONDITION_BLOCKS_BOOKING'); }
+}
+
 // ¿Qué? Middleware de Express para capturar todos los errores lanzados en la cadena.
 // ¿Para qué? Retornar respuestas de error en formato JSON consistente.
 // ¿Impacto? Debe registrarse DESPUÉS de todas las rutas en app.ts.

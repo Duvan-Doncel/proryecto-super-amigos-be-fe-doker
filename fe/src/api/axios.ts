@@ -12,6 +12,22 @@ import type { ApiErrorResponse, ApiResponse, AuthTokens } from '@/types/auth';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
+// ¿Qué? Error de la API con el `code` interno del backend además del mensaje.
+// ¿Para qué? Algunos flujos necesitan reaccionar a un código concreto —
+//   p. ej. PET_CONDITION_BLOCKS_BOOKING deriva al reporte de síntoma (RF-009/RF-010).
+// ¿Impacto? Sigue siendo un Error normal, así que `err.message` funciona igual que antes.
+export class ApiError extends Error {
+  readonly code: string | null;
+  readonly status: number | null;
+
+  constructor(message: string, code: string | null, status: number | null) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -26,12 +42,17 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// ¿Qué? Extrae un mensaje de error legible del cuerpo de respuesta del backend.
-function extractErrorMessage(err: AxiosError<ApiErrorResponse>): string {
+// ¿Qué? Convierte un AxiosError en un ApiError con mensaje + código legibles.
+function toApiError(err: AxiosError<ApiErrorResponse>): ApiError {
   const body = err.response?.data;
-  if (!body) return 'No se pudo conectar con el servidor.';
-  if (typeof body.error === 'string') return body.error;
-  return body.error?.message ?? 'Ocurrió un error inesperado.';
+  const status = err.response?.status ?? null;
+  if (!body) return new ApiError('No se pudo conectar con el servidor.', null, status);
+  if (typeof body.error === 'string') return new ApiError(body.error, null, status);
+  return new ApiError(
+    body.error?.message ?? 'Ocurrió un error inesperado.',
+    body.error?.code ?? null,
+    status,
+  );
 }
 
 // ¿Qué? Evita que múltiples requests que fallan a la vez disparen varios refresh en paralelo.
@@ -78,6 +99,6 @@ apiClient.interceptors.response.use(
       }
     }
 
-    return Promise.reject(new Error(extractErrorMessage(error)));
+    return Promise.reject(toApiError(error));
   },
 );

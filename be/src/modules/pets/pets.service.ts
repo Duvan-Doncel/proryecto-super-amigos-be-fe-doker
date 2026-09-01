@@ -6,10 +6,13 @@
  * ¿Impacto? Un error aquí bloquea todo el flujo del semáforo para un cliente.
  */
 
-import type { Pet } from '@prisma/client';
+import type { Pet, PetSkinCondition } from '@prisma/client';
 import { db } from '../../db/index.js';
 import { NotFoundError, ForbiddenError } from '../../middlewares/error.middleware.js';
-import type { CreatePetInput } from './pets.schema.js';
+import { deriveSizeFromWeight } from '../pricing/pricing.service.js';
+import type { CreatePetInput, UpdatePetInput } from './pets.schema.js';
+
+type PetWithConditions = Pet & { skinConditions: PetSkinCondition[] };
 
 export interface PetResponse {
   id: string;
@@ -21,11 +24,15 @@ export interface PetResponse {
   age: number | null;
   weight: number | null;
   color: string | null;
+  size: string | null;
+  coatType: string | null;
+  behavior: string | null;
+  skinConditions: { type: string; note: string | null }[];
   pathology: string;
   createdAt: Date;
 }
 
-function toPetResponse(pet: Pet): PetResponse {
+function toPetResponse(pet: PetWithConditions): PetResponse {
   return {
     id: pet.id,
     clientId: pet.clientId,
@@ -36,9 +43,27 @@ function toPetResponse(pet: Pet): PetResponse {
     age: pet.age,
     weight: pet.weight ? Number(pet.weight) : null,
     color: pet.color,
+    size: pet.size,
+    coatType: pet.coatType,
+    behavior: pet.behavior,
+    skinConditions: pet.skinConditions
+      .map((c) => ({ type: c.type, note: c.note }))
+      .sort((a, b) => a.type.localeCompare(b.type)),
     pathology: pet.pathology,
     createdAt: pet.createdAt,
   };
+}
+
+// ¿Qué? Si el staff no fijó la talla a mano pero registró un peso, se sugiere desde los
+//   tramos de LA ESPECIE (RF-014). Si mandó la talla explícita, esa gana.
+async function resolveSize(
+  explicitSize: string | undefined,
+  weight: number | undefined,
+  species: Pet['species'],
+): Promise<Pet['size'] | undefined> {
+  if (explicitSize) return explicitSize as Pet['size'];
+  if (weight != null) return (await deriveSizeFromWeight(weight, species)) ?? undefined;
+  return undefined;
 }
 
 // ¿Qué? Registra una mascota a nombre de un cliente existente (RF-012).
@@ -51,6 +76,8 @@ export async function createPet(data: CreatePetInput): Promise<PetResponse> {
     throw new NotFoundError('Cliente no encontrado.');
   }
 
+  const size = await resolveSize(data.size, data.weight, data.species);
+
   const pet = await db.pet.create({
     data: {
       clientId: data.clientId,
@@ -61,8 +88,61 @@ export async function createPet(data: CreatePetInput): Promise<PetResponse> {
       age: data.age,
       weight: data.weight,
       color: data.color,
+      size,
+      coatType: data.coatType,
+      behavior: data.behavior,
       pathology: data.pathology,
+      skinConditions: data.skinConditions?.length
+        ? { create: data.skinConditions.map((c) => ({ type: c.type, note: c.note })) }
+        : undefined,
     },
+    include: { skinConditions: true },
+  });
+
+  return toPetResponse(pet);
+}
+
+// ¿Qué? Edita una mascota (RF-012) — solo staff. Actualiza solo los campos enviados.
+// ¿Para qué? El staff ajusta talla, pelo y condiciones de piel a medida que conoce al animal;
+//   esos datos alimentan el precio del grooming (RF-014).
+// ¿Impacto? Si se envía `skinConditions`, se reemplaza la lista completa. Si se cambia el peso
+//   y no se manda `size`, la talla se recalcula.
+export async function updatePet(id: string, data: UpdatePetInput): Promise<PetResponse> {
+  const existing = await db.pet.findUnique({ where: { id } });
+  if (!existing) throw new NotFoundError('Mascota no encontrada.');
+
+  // Recalcular talla si cambió el peso y no vino una talla explícita (con los tramos de la especie).
+  let size: Pet['size'] | undefined;
+  if (data.size !== undefined) {
+    size = data.size as Pet['size'];
+  } else if (data.weight !== undefined) {
+    size = (await deriveSizeFromWeight(data.weight, data.species ?? existing.species)) ?? null;
+  }
+
+  const pet = await db.pet.update({
+    where: { id },
+    data: {
+      name: data.name,
+      species: data.species,
+      breed: data.breed,
+      gender: data.gender,
+      age: data.age,
+      weight: data.weight,
+      color: data.color,
+      ...(size !== undefined ? { size } : {}),
+      coatType: data.coatType,
+      behavior: data.behavior,
+      pathology: data.pathology,
+      ...(data.skinConditions !== undefined
+        ? {
+            skinConditions: {
+              deleteMany: {},
+              create: data.skinConditions.map((c) => ({ type: c.type, note: c.note })),
+            },
+          }
+        : {}),
+    },
+    include: { skinConditions: true },
   });
 
   return toPetResponse(pet);
@@ -75,6 +155,7 @@ export async function listPetsByClient(clientId: string): Promise<PetResponse[]>
   const pets = await db.pet.findMany({
     where: { clientId },
     orderBy: { createdAt: 'asc' },
+    include: { skinConditions: true },
   });
 
   return pets.map(toPetResponse);

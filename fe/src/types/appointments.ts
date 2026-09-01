@@ -3,6 +3,8 @@
  * Descripción: Tipos TypeScript para las citas de grooming (RF-009, RF-017).
  */
 
+import type { PriceBreakdown } from './pricing';
+
 export type AppointmentStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
 export interface Appointment {
@@ -14,6 +16,9 @@ export interface Appointment {
   time: string;
   status: AppointmentStatus;
   notes: string | null;
+  // ¿Qué? Precio congelado al agendar (RF-009). Null en citas previas al motor de precios.
+  totalPrice: number | null;
+  priceBreakdown: PriceBreakdown | null;
   createdAt: string;
 }
 

@@ -6,10 +6,23 @@
 import { Router, type IRouter } from 'express';
 import { authenticate, requireRole } from '../../middlewares/auth.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
-import { createAppointmentSchema, updateAppointmentStatusSchema } from './appointments.schema.js';
+import {
+  createAppointmentSchema,
+  quoteAppointmentSchema,
+  updateAppointmentStatusSchema,
+} from './appointments.schema.js';
 import * as appointmentsController from './appointments.controller.js';
 
 const router: IRouter = Router();
+
+// POST /api/v1/appointments/quote — estimador de precio, no crea la cita (RF-009, solo cliente)
+router.post(
+  '/quote',
+  authenticate,
+  requireRole('client'),
+  validate(quoteAppointmentSchema),
+  appointmentsController.quote,
+);
 
 // POST /api/v1/appointments — agenda una cita de grooming (RF-009, solo cliente)
 router.post(

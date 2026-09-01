@@ -11,9 +11,20 @@ import type {
   AppointmentStatus,
   CreateAppointmentRequest,
 } from '@/types/appointments';
+import type { PriceBreakdown } from '@/types/pricing';
 
 export async function createAppointment(data: CreateAppointmentRequest): Promise<Appointment> {
   const res = await apiClient.post<ApiResponse<Appointment>>('/appointments', data);
+  return res.data.data;
+}
+
+// ¿Qué? Estimador de precio (RF-009) — devuelve el desglose sin crear la cita.
+// ¿Impacto? Si `blocked` es true, la cita NO se puede agendar: hay que ir al reporte de síntoma.
+export async function quoteAppointment(petId: string, serviceId: string): Promise<PriceBreakdown> {
+  const res = await apiClient.post<ApiResponse<PriceBreakdown>>('/appointments/quote', {
+    petId,
+    serviceId,
+  });
   return res.data.data;
 }
 
