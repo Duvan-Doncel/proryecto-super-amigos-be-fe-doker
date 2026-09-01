@@ -8,6 +8,7 @@
  */
 
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { InputField } from '@/components/ui/InputField';
 
 describe('InputField', () => {
@@ -50,5 +51,24 @@ describe('InputField', () => {
   it('no muestra párrafo de error cuando error está vacío', () => {
     render(<InputField id="nombre" label="Nombre" />);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('no muestra el botón del ojo en un campo que no es de contraseña', () => {
+    render(<InputField id="email" label="Email" type="email" />);
+    expect(screen.queryByLabelText('Mostrar contraseña')).not.toBeInTheDocument();
+  });
+
+  it('el ojo alterna el type del campo de contraseña entre password y text', async () => {
+    const user = userEvent.setup();
+    render(<InputField id="pass" label="Contraseña" type="password" />);
+
+    const input = screen.getByLabelText('Contraseña');
+    expect(input).toHaveAttribute('type', 'password');
+
+    await user.click(screen.getByLabelText('Mostrar contraseña'));
+    expect(input).toHaveAttribute('type', 'text');
+
+    await user.click(screen.getByLabelText('Ocultar contraseña'));
+    expect(input).toHaveAttribute('type', 'password');
   });
 });

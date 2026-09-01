@@ -12,6 +12,25 @@ import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { Alert } from '@/components/ui/Alert';
 
+// ¿Qué? Caracteres NO permitidos en nombre/apellido: todo lo que no sea letra
+//   (de cualquier idioma), espacio, apóstrofo o guion. Se usa para filtrar al teclear.
+// ¿Para qué? Un nombre no lleva números ni símbolos — se limpia en el momento.
+const NAME_DISALLOWED_CHARS = /[^\p{L} '-]/gu;
+
+// ¿Qué? Formato válido de nombre: una o más palabras de solo letras, separadas
+//   por un espacio, apóstrofo o guion (ej: "Ana María", "O'Brien", "Pérez-Gómez").
+const NAME_REGEX = /^\p{L}+(?:[ '-]\p{L}+)*$/u;
+
+// ¿Qué? Teléfono: entre 7 y 15 dígitos, nada más.
+const PHONE_REGEX = /^\d{7,15}$/;
+
+// ¿Qué? Documento: entre 4 y 20 dígitos, sin letras ni símbolos.
+const DOCUMENT_REGEX = /^\d{4,20}$/;
+
+// ¿Qué? Correo con formato real: algo@algo.algo, sin espacios.
+// ¿Para qué? Reemplaza el chequeo anterior que solo exigía un '@' y dejaba pasar "a@b".
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 interface FormData {
   documentId: string;
   firstName: string;
@@ -43,29 +62,50 @@ export function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [registered, setRegistered] = useState(false);
 
+  // ¿Qué? Filtra el valor tecleado según el campo antes de guardarlo en el estado.
+  // ¿Para qué? Guiar al usuario en el momento: en "Nombre"/"Apellido" no puede escribir
+  //   números ni símbolos, y en "Documento"/"Teléfono" solo dígitos. El resto pasa igual.
+  const sanitizeField = (name: string, value: string): string => {
+    if (name === 'firstName' || name === 'lastName') {
+      return value.replace(NAME_DISALLOWED_CHARS, '');
+    }
+    if (name === 'documentId') {
+      return value.replace(/\D/g, '').slice(0, 20);
+    }
+    if (name === 'phone') {
+      return value.replace(/\D/g, '').slice(0, 15);
+    }
+    return value;
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    setErrors((prev) => ({ ...prev, [e.target.name]: undefined }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: sanitizeField(name, value) }));
+    setErrors((prev) => ({ ...prev, [name]: undefined }));
     setServerError(null);
   };
 
   const validate = (): boolean => {
     const newErrors: FormErrors = {};
 
-    if (formData.documentId.trim().length < 4) {
-      newErrors.documentId = 'El documento debe tener al menos 4 caracteres.';
+    if (!DOCUMENT_REGEX.test(formData.documentId.trim())) {
+      newErrors.documentId = 'El documento debe tener entre 4 y 20 dígitos.';
     }
     if (formData.firstName.trim().length < 2) {
       newErrors.firstName = 'El nombre debe tener al menos 2 caracteres.';
+    } else if (!NAME_REGEX.test(formData.firstName.trim())) {
+      newErrors.firstName = 'El nombre solo puede contener letras.';
     }
     if (formData.lastName.trim().length < 2) {
       newErrors.lastName = 'El apellido debe tener al menos 2 caracteres.';
+    } else if (!NAME_REGEX.test(formData.lastName.trim())) {
+      newErrors.lastName = 'El apellido solo puede contener letras.';
     }
-    if (formData.phone.trim().length < 7) {
-      newErrors.phone = 'El teléfono es obligatorio.';
+    if (!PHONE_REGEX.test(formData.phone.trim())) {
+      newErrors.phone = 'El teléfono debe tener entre 7 y 15 dígitos.';
     }
-    if (!formData.email.includes('@')) {
-      newErrors.email = 'El correo no es válido.';
+    if (!EMAIL_REGEX.test(formData.email.trim())) {
+      newErrors.email = 'Ingresa un correo válido, por ejemplo: nombre@dominio.com';
     }
     if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(formData.password)) {
       newErrors.password = 'La contraseña debe tener 8+ caracteres, mayúscula, minúscula y número.';
@@ -91,7 +131,7 @@ export function RegisterPage() {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         phone: formData.phone.trim(),
-        email: formData.email,
+        email: formData.email.trim(),
         password: formData.password,
       });
       setRegistered(true);
@@ -144,6 +184,7 @@ export function RegisterPage() {
             name="documentId"
             label="Número de documento"
             type="text"
+            inputMode="numeric"
             autoComplete="off"
             required
             value={formData.documentId}
@@ -183,6 +224,7 @@ export function RegisterPage() {
             name="phone"
             label="Teléfono"
             type="tel"
+            inputMode="numeric"
             autoComplete="tel"
             required
             value={formData.phone}

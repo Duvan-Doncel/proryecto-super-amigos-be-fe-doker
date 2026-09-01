@@ -13,17 +13,42 @@ const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const PASSWORD_MESSAGE =
   'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.';
 
+// ¿Qué? Nombre/apellido válido: palabras de solo letras (cualquier idioma) separadas
+//   por un espacio, apóstrofo o guion. Rechaza dígitos y símbolos.
+// ¿Para qué? El frontend ya filtra al teclear; esto lo vuelve a exigir en el servidor
+//   por si el request llega por otra vía (curl, Postman, un cliente modificado).
+const NAME_REGEX = /^\p{L}+(?:[ '-]\p{L}+)*$/u;
+
+// ¿Qué? Teléfono: entre 7 y 15 dígitos, sin espacios ni símbolos.
+const PHONE_REGEX = /^\d{7,15}$/;
+
+// ¿Qué? Documento: entre 4 y 20 dígitos, sin letras ni símbolos.
+const DOCUMENT_REGEX = /^\d{4,20}$/;
+
 // --- Schema de registro de cliente (RF-001) ---
 // ¿Qué? Valida los datos del formulario de registro de un cliente: documento, nombre,
 //   apellido, teléfono, email y contraseña.
 // ¿Para qué? Rechazar en el servidor cualquier dato malformado antes de consultar la BD.
 // ¿Impacto? .toLowerCase().trim() normaliza el email para evitar duplicados por mayúsculas.
 export const registerSchema = z.object({
-  documentId: z.string().min(4, 'El documento debe tener al menos 4 caracteres.').max(30).trim(),
-  firstName: z.string().min(2, 'El nombre debe tener al menos 2 caracteres.').max(100).trim(),
-  lastName: z.string().min(2, 'El apellido debe tener al menos 2 caracteres.').max(100).trim(),
+  documentId: z
+    .string()
+    .trim()
+    .regex(DOCUMENT_REGEX, 'El documento debe tener entre 4 y 20 dígitos.'),
+  firstName: z
+    .string()
+    .trim()
+    .min(2, 'El nombre debe tener al menos 2 caracteres.')
+    .max(100)
+    .regex(NAME_REGEX, 'El nombre solo puede contener letras.'),
+  lastName: z
+    .string()
+    .trim()
+    .min(2, 'El apellido debe tener al menos 2 caracteres.')
+    .max(100)
+    .regex(NAME_REGEX, 'El apellido solo puede contener letras.'),
   // ¿Qué? El teléfono es obligatorio (RN-003 de RF-001) — canal principal para confirmar citas.
-  phone: z.string().min(7, 'El teléfono no es válido.').max(30).trim(),
+  phone: z.string().trim().regex(PHONE_REGEX, 'El teléfono debe tener entre 7 y 15 dígitos.'),
   email: z.string().email('El email no tiene un formato válido.').toLowerCase().trim(),
   password: z.string().regex(PASSWORD_REGEX, PASSWORD_MESSAGE),
 });
@@ -34,8 +59,18 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 // ¿Qué? Valida los datos para que un staff cree la cuenta de otro miembro del staff.
 // ¿Para qué? A diferencia del registro de cliente, no pide documento ni teléfono.
 export const createStaffSchema = z.object({
-  firstName: z.string().min(2, 'El nombre debe tener al menos 2 caracteres.').max(100).trim(),
-  lastName: z.string().min(2, 'El apellido debe tener al menos 2 caracteres.').max(100).trim(),
+  firstName: z
+    .string()
+    .trim()
+    .min(2, 'El nombre debe tener al menos 2 caracteres.')
+    .max(100)
+    .regex(NAME_REGEX, 'El nombre solo puede contener letras.'),
+  lastName: z
+    .string()
+    .trim()
+    .min(2, 'El apellido debe tener al menos 2 caracteres.')
+    .max(100)
+    .regex(NAME_REGEX, 'El apellido solo puede contener letras.'),
   email: z.string().email('El email no tiene un formato válido.').toLowerCase().trim(),
   password: z.string().regex(PASSWORD_REGEX, PASSWORD_MESSAGE),
 });

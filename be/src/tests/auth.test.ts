@@ -64,6 +64,36 @@ describe('POST /api/v1/auth/register', () => {
     expect(res.body.success).toBe(false);
   });
 
+  // ¿Qué? Documento con letras — el schema zod debe rechazarlo (solo dígitos).
+  it('should return 422 when documentId contains non-digit characters', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/register')
+      .send({ ...TEST_USER, documentId: 'ABC12345' });
+
+    expect(res.status).toBe(422);
+    expect(res.body.success).toBe(false);
+  });
+
+  // ¿Qué? Nombre con dígitos — el schema zod debe rechazarlo (solo letras).
+  it('should return 422 when firstName contains non-letter characters', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/register')
+      .send({ ...TEST_USER, firstName: 'Juan123' });
+
+    expect(res.status).toBe(422);
+    expect(res.body.success).toBe(false);
+  });
+
+  // ¿Qué? Teléfono con letras / longitud inválida — debe rechazarse (7 a 15 dígitos).
+  it('should return 422 when phone is not 7-15 digits', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/register')
+      .send({ ...TEST_USER, phone: '300-ABC' });
+
+    expect(res.status).toBe(422);
+    expect(res.body.success).toBe(false);
+  });
+
   // ¿Qué? Body vacío — el middleware validate debe rechazarlo.
   it('should return 422 with empty body', async () => {
     const res = await request(app).post('/api/v1/auth/register').send({});
