@@ -7,6 +7,10 @@ services:
   db:
     image: postgres:17-alpine
     container_name: groomingspa_db
+    # ¿Qué? Docker reinicia el contenedor solo, salvo que lo pares a mano.
+    # ¿Para qué? Tras reiniciar la PC o Docker Desktop, la base vuelve sola —
+    #   sin esto había que hacer `docker compose up -d` cada vez.
+    restart: unless-stopped
     environment:
       POSTGRES_USER: groomingspa_user
       POSTGRES_PASSWORD: groomingspa_password
@@ -39,6 +43,10 @@ services:
     build:
       context: ./be
     container_name: groomingspa_be
+    # ¿Qué? Reinicio automático — el backend vuelve solo tras un reboot o un crash.
+    # ¿Para qué? Evita el error "No se pudo conectar con el servidor" en el frontend
+    #   cuando `fe` sigue arriba pero `be` quedó caído.
+    restart: unless-stopped
     env_file:
       - ./be/.env
     environment:
@@ -61,6 +69,8 @@ services:
       args:
         VITE_API_BASE_URL: http://localhost:3000/api/v1
     container_name: groomingspa_fe
+    # ¿Qué? Reinicio automático, igual que db y be.
+    restart: unless-stopped
     ports:
       - "5173:80"
     depends_on:
