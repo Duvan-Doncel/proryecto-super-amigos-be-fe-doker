@@ -27,6 +27,7 @@
 
 ---
 
+
 ## Criterios de Aceptación
 
 ### CA-001.1 — Formulario de registro completo
