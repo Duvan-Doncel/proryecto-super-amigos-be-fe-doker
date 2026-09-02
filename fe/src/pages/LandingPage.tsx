@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useAuthModal } from '@/hooks/useAuthModal';
 import {
   Scissors,
   Stethoscope,
@@ -135,6 +135,7 @@ function PhotoFrame({ photo, onOpen }: PhotoFrameProps) {
 }
 
 export function LandingPage() {
+  const { open: openAuthModal } = useAuthModal();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [heroGroup, setHeroGroup] = useState(0);
   const [frameCursor, setFrameCursor] = useState(0);
@@ -189,12 +190,12 @@ export function LandingPage() {
           sus productos favoritos, todo desde un solo lugar.
         </p>
         <div className="flex items-center justify-center gap-3">
-          <Link to="/register">
-            <Button variant="primary">Crear cuenta</Button>
-          </Link>
-          <Link to="/login">
-            <Button variant="secondary">Iniciar sesión</Button>
-          </Link>
+          <Button variant="primary" onClick={() => openAuthModal('register')}>
+            Crear cuenta
+          </Button>
+          <Button variant="secondary" onClick={() => openAuthModal('login')}>
+            Iniciar sesión
+          </Button>
         </div>
       </section>
 
@@ -372,9 +373,9 @@ export function LandingPage() {
           <p className="text-gray-700 dark:text-slate-300 mb-6">
             Crea tu cuenta gratis y agenda su primera cita en minutos.
           </p>
-          <Link to="/register">
-            <Button variant="primary">Crear cuenta 🐾</Button>
-          </Link>
+          <Button variant="primary" onClick={() => openAuthModal('register')}>
+            Crear cuenta 🐾
+          </Button>
         </div>
       </section>
 

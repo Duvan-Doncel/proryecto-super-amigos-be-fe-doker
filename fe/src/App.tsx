@@ -9,6 +9,7 @@
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
+import { AuthModalProvider } from '@/context/AuthModalProvider';
 import { ProtectedRoute } from '@/components/ui/ProtectedRoute';
 import { Layout } from '@/components/layout/Layout';
 import { LandingPage } from '@/pages/LandingPage';
@@ -19,6 +20,8 @@ import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage';
 import { PricingInfoPage } from '@/pages/PricingInfoPage';
+import { TermsPage } from '@/pages/legal/TermsPage';
+import { PrivacyPage } from '@/pages/legal/PrivacyPage';
 import { ClientHomePage } from '@/pages/client/ClientHomePage';
 import { AppointmentPage } from '@/pages/client/AppointmentPage';
 import { SymptomReportPage } from '@/pages/client/SymptomReportPage';
@@ -42,6 +45,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <AuthModalProvider>
         <Routes>
           {/* ─── Rutas públicas — accesibles sin autenticación ─── */}
           <Route path="/" element={<Layout><LandingPage /></Layout>} />
@@ -51,6 +55,8 @@ function App() {
           <Route path="/reset-password" element={<Layout><ResetPasswordPage /></Layout>} />
           <Route path="/verify-email" element={<Layout><VerifyEmailPage /></Layout>} />
           <Route path="/precios" element={<Layout><PricingInfoPage /></Layout>} />
+          <Route path="/terminos" element={<Layout><TermsPage /></Layout>} />
+          <Route path="/privacidad" element={<Layout><PrivacyPage /></Layout>} />
 
           {/* ─── Zona del cliente — solo role: client ─── */}
           <Route
@@ -223,6 +229,7 @@ function App() {
             }
           />
         </Routes>
+        </AuthModalProvider>
       </BrowserRouter>
     </AuthProvider>
   );

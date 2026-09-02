@@ -2,49 +2,15 @@
  * Archivo: pages/LoginPage.tsx
  * Descripción: Página de inicio de sesión (RF-002, HU-002).
  * ¿Para qué? Permitir a clientes y staff autenticarse con email y contraseña.
- * ¿Impacto? Es la puerta de entrada principal al sistema.
+ * ¿Impacto? Es la puerta de entrada principal al sistema. El formulario en sí vive en
+ *   components/auth/LoginForm.tsx, reutilizado también por el pop-up de la navbar.
  */
 
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/Button';
-import { InputField } from '@/components/ui/InputField';
-import { Alert } from '@/components/ui/Alert';
-
-interface FormData {
-  email: string;
-  password: string;
-}
+import { LoginForm } from '@/components/auth/LoginForm';
 
 export function LoginPage() {
-  const { login } = useAuth();
   const navigate = useNavigate();
-
-  const [formData, setFormData] = useState<FormData>({ email: '', password: '' });
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    setError(null);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // ¿Qué? El rol del perfil decide a dónde navegar — CA-002.3/CA-002.4.
-      const profile = await login(formData);
-      navigate(profile.role === 'staff' ? '/staff' : '/app');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4 py-12">
@@ -61,48 +27,9 @@ export function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate className="space-y-4">
-          {error && <Alert type="error" message={error} />}
-
-          <InputField
-            id="email"
-            name="email"
-            label="Correo electrónico"
-            type="email"
-            autoComplete="email"
-            required
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="tucorreo@ejemplo.com"
-          />
-
-          <InputField
-            id="password"
-            name="password"
-            label="Contraseña"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={formData.password}
-            onChange={handleChange}
-            placeholder="••••••••"
-          />
-
-          <div className="flex justify-end">
-            <Link
-              to="/forgot-password"
-              className="text-xs text-gray-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-            >
-              ¿Olvidaste tu contraseña?
-            </Link>
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <Button type="submit" isLoading={isLoading}>
-              Iniciar sesión
-            </Button>
-          </div>
-        </form>
+        <LoginForm
+          onSuccess={(profile) => navigate(profile.role === 'staff' ? '/staff' : '/app')}
+        />
       </div>
     </div>
   );

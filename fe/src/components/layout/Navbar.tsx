@@ -9,9 +9,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, User } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuthModal } from '@/hooks/useAuthModal';
 
 export function Navbar() {
   const { isAuthenticated, user, logout } = useAuth();
+  const { open } = useAuthModal();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -54,18 +56,20 @@ export function Navbar() {
             </>
           ) : (
             <>
-              <Link
-                to="/login"
+              <button
+                type="button"
+                onClick={() => open('login')}
                 className="px-3 py-1.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors duration-200"
               >
                 Iniciar sesión
-              </Link>
-              <Link
-                to="/register"
+              </button>
+              <button
+                type="button"
+                onClick={() => open('register')}
                 className="px-3 py-1.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 rounded-lg transition-colors duration-200"
               >
                 Registrarme
-              </Link>
+              </button>
             </>
           )}
         </div>
