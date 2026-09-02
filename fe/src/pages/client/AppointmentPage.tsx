@@ -251,7 +251,7 @@ export function AppointmentPage() {
             return (
               <li
                 key={a.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm"
+                className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm text-gray-700 dark:text-slate-300"
               >
                 <span>
                   {a.date} — {a.time} — {service?.name ?? 'Servicio'} ({pet?.name ?? 'Mascota'})

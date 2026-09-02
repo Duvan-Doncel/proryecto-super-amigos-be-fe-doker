@@ -62,6 +62,22 @@ body {
 }
 
 /*
+ * ¿Qué? Indicar al navegador qué esquema de color usar para los controles nativos
+ *   (<select> y su lista de opciones, <input type="date"/"time"> y sus iconos,
+ *   scrollbars, etc.).
+ * ¿Para qué? Sin esto el navegador dibuja esos controles siempre en modo claro:
+ *   en el tema oscuro se veían con texto negro ("mm/dd/yyyy", "Selecciona…") e
+ *   iconos negros sobre el fondo oscuro del campo.
+ * ¿Impacto? En modo oscuro los controles nativos pasan a texto e iconos claros.
+ */
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+/*
  * ¿Qué? "Toques cómic" — identidad visual de Super Amigos Grooming Spa.
  * ¿Para qué? El nombre evoca un equipo de superhéroes; estas utilidades aplican esa
  *   personalidad SOLO en títulos, botones y tarjetas destacadas — el resto de la app
