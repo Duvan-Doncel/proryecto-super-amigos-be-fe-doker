@@ -7,8 +7,9 @@
 
 import { Router, type IRouter } from 'express';
 import { authenticate, requireRole } from '../../middlewares/auth.middleware.js';
-import { validate } from '../../middlewares/validate.middleware.js';
+import { validate, validateQuery } from '../../middlewares/validate.middleware.js';
 import { createStaffSchema } from '../auth/auth.schema.js';
+import { listClientsQuerySchema } from '../users/users.schema.js';
 import * as staffController from './staff.controller.js';
 
 const router: IRouter = Router();
@@ -23,7 +24,13 @@ router.post(
   staffController.createStaff,
 );
 
-// GET /api/v1/staff/clients?q=... — Busca clientes por nombre, email o documento (RF-012)
-router.get('/clients', authenticate, requireRole('staff'), staffController.searchClients);
+// GET /api/v1/staff/clients?q=&page=&limit= — Lista/busca clientes, paginado (RF-012)
+router.get(
+  '/clients',
+  authenticate,
+  requireRole('staff'),
+  validateQuery(listClientsQuerySchema),
+  staffController.searchClients,
+);
 
 export default router;

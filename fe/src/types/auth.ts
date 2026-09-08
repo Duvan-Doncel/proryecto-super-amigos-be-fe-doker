@@ -66,6 +66,14 @@ export interface ChangePasswordRequest {
   newPassword: string;
 }
 
+// ¿Qué? Request body para editar el propio perfil (RF-007). Todos opcionales; al menos uno.
+//   No incluye email (requiere re-verificación) ni documento/rol (los gestiona el staff).
+export interface UpdateProfileRequest {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+}
+
 // ¿Qué? Request body para solicitar el email de recuperación.
 export interface ForgotPasswordRequest {
   email: string;

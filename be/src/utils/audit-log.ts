@@ -16,7 +16,8 @@ type AuditEvent =
   | 'PASSWORD_CHANGED'
   | 'PASSWORD_RESET_REQUESTED'
   | 'EMAIL_VERIFIED'
-  | 'RATE_LIMIT_HIT';
+  | 'RATE_LIMIT_HIT'
+  | 'PROFILE_UPDATED';
 
 // ¿Qué? Estructura de un registro de auditoría.
 // ¿Para qué? Normalizar el formato de todos los logs para facilitar su procesamiento
@@ -94,6 +95,19 @@ export function logEmailVerified(userId: string): void {
     timestamp: new Date().toISOString(),
     event: 'EMAIL_VERIFIED',
     userId,
+  });
+}
+
+// ¿Qué? Registra que un usuario editó su propio perfil (RF-007).
+// ¿Para qué? Trazar cambios de datos de contacto — útil si un cliente reporta que "alguien
+//   cambió mi teléfono".
+// ¿Impacto? Solo registra QUÉ campos cambiaron, nunca los valores nuevos.
+export function logProfileUpdated(userId: string, fields: string[]): void {
+  writeAuditLog({
+    timestamp: new Date().toISOString(),
+    event: 'PROFILE_UPDATED',
+    userId,
+    reason: `campos: ${fields.join(', ')}`,
   });
 }
 

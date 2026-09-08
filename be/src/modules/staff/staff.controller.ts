@@ -6,11 +6,10 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
 import * as authService from '../auth/auth.service.js';
 import * as usersService from '../users/users.service.js';
 import type { CreateStaffInput } from '../auth/auth.schema.js';
-import { ValidationError } from '../../middlewares/error.middleware.js';
+import type { ListClientsQuery } from '../users/users.schema.js';
 
 // ¿Qué? Crea una nueva cuenta de staff.
 // ¿Para qué? Solo alcanzable por un staff ya autenticado (ver staff.router.ts).
@@ -27,19 +26,16 @@ export async function createStaff(
   }
 }
 
-const searchQuerySchema = z.string().trim().min(2, 'Escribe al menos 2 caracteres para buscar.');
-
-// ¿Qué? Busca clientes por nombre, apellido, email o documento (soporte técnico de RF-012).
-// ¿Para qué? El staff necesita ubicar el clientId de un cliente ya registrado antes de
-//   poder registrarle una mascota — no se espera que memorice UUIDs.
+// ¿Qué? Lista clientes, paginada y con búsqueda opcional (`?q=`, `?page=`, `?limit=`).
+// ¿Para qué? La pantalla "Clientes" del panel recorre todos los clientes; el buscador de
+//   mascotas y el de ventas usan el mismo endpoint pasando `q`.
+// ¿Impacto? El query ya viene validado por `validateQuery(listClientsQuerySchema)` — page
+//   y limit llegan como number con defaults aplicados.
 export async function searchClients(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const parsed = searchQuerySchema.safeParse(req.query.q);
-    if (!parsed.success) {
-      throw new ValidationError(parsed.error.errors[0]!.message);
-    }
-    const clients = await usersService.searchClients(parsed.data);
-    res.status(200).json({ success: true, data: clients });
+    const { q, page, limit } = req.validatedQuery as ListClientsQuery;
+    const { data, ...meta } = await usersService.listClients({ search: q, page, limit });
+    res.status(200).json({ success: true, data, meta });
   } catch (err) {
     next(err);
   }

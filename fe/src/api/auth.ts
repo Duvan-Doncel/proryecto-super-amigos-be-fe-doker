@@ -16,6 +16,7 @@ import type {
   RefreshTokenRequest,
   RegisterRequest,
   ResetPasswordRequest,
+  UpdateProfileRequest,
   User,
   VerifyEmailRequest,
 } from '@/types/auth';
@@ -51,6 +52,12 @@ export async function resetPassword(data: ResetPasswordRequest): Promise<void> {
 // ¿Para qué? Restaurar la sesión al recargar la página.
 export async function getMe(): Promise<User> {
   const res = await apiClient.get<ApiResponse<User>>('/users/me');
+  return res.data.data;
+}
+
+// ¿Qué? Edita el propio perfil (nombre, apellido, teléfono) — RF-007.
+export async function updateMe(data: UpdateProfileRequest): Promise<User> {
+  const res = await apiClient.put<ApiResponse<User>>('/users/me', data);
   return res.data.data;
 }
 

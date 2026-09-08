@@ -7,6 +7,8 @@
 
 import { db } from '../../db/index.js';
 import { NotFoundError } from '../../middlewares/error.middleware.js';
+import { logProfileUpdated } from '../../utils/audit-log.js';
+import type { UpdateProfileInput } from './users.schema.js';
 
 // ¿Qué? DTO de perfil de usuario — omite hashedPassword.
 export interface UserProfile {
@@ -47,8 +49,44 @@ export async function getUserById(userId: string): Promise<UserProfile> {
   };
 }
 
-// ¿Qué? Resumen mínimo de un cliente — usado por el staff para ubicarlo antes de
-//   registrarle una mascota (RF-012), sin exponer su hash de contraseña ni otros datos.
+// ¿Qué? Actualiza los datos que el propio usuario puede cambiar: nombre, apellido, teléfono.
+// ¿Para qué? Servir PUT /api/v1/users/me. El email, el documento y el rol NO son editables
+//   por esta vía (el email requiere re-verificación; documento y rol los gestiona el staff).
+// ¿Impacto? El ID viene del token — un usuario solo puede editar su propio perfil.
+export async function updateProfile(userId: string, data: UpdateProfileInput): Promise<UserProfile> {
+  const exists = await db.user.findUnique({ where: { id: userId } });
+  if (!exists) throw new NotFoundError('Usuario no encontrado.');
+
+  const user = await db.user.update({
+    where: { id: userId },
+    data: {
+      ...(data.firstName !== undefined && { firstName: data.firstName }),
+      ...(data.lastName !== undefined && { lastName: data.lastName }),
+      ...(data.phone !== undefined && { phone: data.phone }),
+      // ¿Qué? `updatedAt` no es @updatedAt en el schema — se fija a mano.
+      updatedAt: new Date(),
+    },
+  });
+
+  logProfileUpdated(userId, Object.keys(data));
+
+  return {
+    id: user.id,
+    documentId: user.documentId,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    phone: user.phone,
+    email: user.email,
+    role: user.role,
+    isEmailVerified: user.isEmailVerified,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
+// ¿Qué? Resumen de un cliente para el panel de staff — sin hash de contraseña.
+//   Incluye `createdAt` ("cliente desde") y `petCount` (mascotas registradas) para que la
+//   pantalla "Clientes" muestre información útil de un vistazo.
 export interface ClientSummary {
   id: string;
   documentId: string | null;
@@ -56,33 +94,66 @@ export interface ClientSummary {
   lastName: string;
   email: string;
   phone: string | null;
+  createdAt: Date;
+  petCount: number;
 }
 
-// ¿Qué? Busca clientes por nombre, apellido, email o documento (RF-012, soporte técnico).
-// ¿Para qué? El staff registra mascotas en persona y necesita ubicar el `clientId` de un
-//   cliente ya existente sin conocer su UUID de memoria.
-// ¿Impacto? Limitado a role: 'client' y a 10 resultados — nunca devuelve cuentas de staff.
-export async function searchClients(search: string): Promise<ClientSummary[]> {
-  const users = await db.user.findMany({
-    where: {
-      role: 'client',
-      OR: [
-        { email: { contains: search, mode: 'insensitive' } },
-        { documentId: { contains: search, mode: 'insensitive' } },
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-      ],
-    },
-    take: 10,
-    orderBy: { firstName: 'asc' },
-  });
+export interface PaginatedClients {
+  data: ClientSummary[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
 
-  return users.map((u) => ({
-    id: u.id,
-    documentId: u.documentId,
-    firstName: u.firstName,
-    lastName: u.lastName,
-    email: u.email,
-    phone: u.phone,
-  }));
+interface ListClientsParams {
+  search?: string;
+  page: number;
+  limit: number;
+}
+
+// ¿Qué? Lista clientes (role: 'client'), paginada y opcionalmente filtrada por texto.
+// ¿Para qué? La pantalla "Clientes" del panel recorre todos los clientes; el buscador de
+//   mascotas / ventas usa el mismo endpoint pasando `search` y se queda con la 1ª página.
+// ¿Impacto? Nunca devuelve cuentas de staff.
+export async function listClients({ search, page, limit }: ListClientsParams): Promise<PaginatedClients> {
+  const where = {
+    role: 'client' as const,
+    ...(search && {
+      OR: [
+        { email: { contains: search, mode: 'insensitive' as const } },
+        { documentId: { contains: search, mode: 'insensitive' as const } },
+        { firstName: { contains: search, mode: 'insensitive' as const } },
+        { lastName: { contains: search, mode: 'insensitive' as const } },
+      ],
+    }),
+  };
+
+  const [users, total] = await Promise.all([
+    db.user.findMany({
+      where,
+      include: { _count: { select: { pets: true } } },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    }),
+    db.user.count({ where }),
+  ]);
+
+  return {
+    data: users.map((u) => ({
+      id: u.id,
+      documentId: u.documentId,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      phone: u.phone,
+      createdAt: u.createdAt,
+      petCount: u._count.pets,
+    })),
+    page,
+    limit,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+  };
 }
