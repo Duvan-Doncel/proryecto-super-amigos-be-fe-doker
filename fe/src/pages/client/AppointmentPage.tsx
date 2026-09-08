@@ -22,6 +22,9 @@ import { SelectField } from '@/components/ui/SelectField';
 import { InputField } from '@/components/ui/InputField';
 import { Alert } from '@/components/ui/Alert';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Pagination } from '@/components/ui/Pagination';
+
+const CITAS_PAGE_SIZE = 8;
 
 interface FormData {
   petId: string;
@@ -47,6 +50,12 @@ export function AppointmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [citasPage, setCitasPage] = useState(1);
+
+  // ¿Qué? Citas más recientes primero — la lista es corta pero se pagina por consistencia.
+  const sortedAppointments = [...appointments].sort((a, b) =>
+    `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`),
+  );
 
   const loadAppointments = () => appointmentsApi.listMyAppointments().then(setAppointments);
 
@@ -110,11 +119,11 @@ export function AppointmentPage() {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
-      <Link to="/app" className="text-sm text-gray-500 dark:text-slate-400 hover:underline">
+      <Link to="/app" className="text-sm text-text-muted hover:underline">
         ← Volver
       </Link>
 
-      <h1 className="text-2xl font-comic tracking-wide text-gray-900 dark:text-slate-100 mt-4 mb-6">
+      <h1 className="text-2xl font-display tracking-wide text-text mt-4 mb-6">
         🟢 Agendar Cita de Grooming
       </h1>
 
@@ -159,33 +168,33 @@ export function AppointmentPage() {
 
         {/* ─── Estimador de precio / aviso de bloqueo (RF-014, RF-010) ─── */}
         {isQuoting && (
-          <p className="text-sm text-gray-500 dark:text-slate-400">Calculando precio…</p>
+          <p className="text-sm text-text-muted">Calculando precio…</p>
         )}
 
         {quote && !blocked && (
-          <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 p-4">
-            <p className="text-sm font-medium text-gray-700 dark:text-slate-300">
+          <div className="rounded-xl border border-border bg-surface-2 p-4">
+            <p className="text-sm font-medium text-text">
               Precio estimado — {quote.petName}
             </p>
             <dl className="mt-3 space-y-1.5 text-sm tabular-nums">
               <div className="flex justify-between">
-                <dt className="text-gray-500 dark:text-slate-400">Base</dt>
+                <dt className="text-text-muted">Base</dt>
                 <dd>{formatCOP(quote.base)}</dd>
               </div>
               {quote.lines.map((line) => (
                 <div key={line.label} className="flex justify-between">
-                  <dt className="text-gray-500 dark:text-slate-400">{line.label}</dt>
+                  <dt className="text-text-muted">{line.label}</dt>
                   <dd className="text-amber-700 dark:text-amber-500">+ {formatCOP(line.amount)}</dd>
                 </div>
               ))}
-              <div className="flex justify-between border-t border-gray-200 dark:border-slate-700 pt-2 font-semibold text-gray-900 dark:text-slate-100">
+              <div className="flex justify-between border-t border-border pt-2 font-semibold text-text">
                 <dt>Total estimado</dt>
                 <dd>{formatCOP(quote.total)}</dd>
               </div>
             </dl>
-            <p className="mt-2 text-xs text-gray-500 dark:text-slate-400">
+            <p className="mt-2 text-xs text-text-muted">
               El personal confirma el total al confirmar la cita.{' '}
-              <Link to="/precios" className="text-brand-600 dark:text-brand-400 hover:underline">
+              <Link to="/precios" className="text-[color:var(--color-primary)] hover:underline">
                 Cómo calculamos el precio
               </Link>
             </p>
@@ -240,30 +249,40 @@ export function AppointmentPage() {
         </div>
       </form>
 
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Mis citas</h2>
+      <h2 className="text-lg font-semibold text-text mb-3">Mis citas</h2>
       {appointments.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-slate-400">Todavía no tienes citas agendadas.</p>
+        <p className="text-sm text-text-muted">Todavía no tienes citas agendadas.</p>
       ) : (
-        <ul className="space-y-2">
-          {appointments.map((a) => {
-            const pet = pets.find((p) => p.id === a.petId);
-            const service = services.find((s) => s.id === a.serviceId);
-            return (
-              <li
-                key={a.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm text-gray-700 dark:text-slate-300"
-              >
-                <span>
-                  {a.date} — {a.time} — {service?.name ?? 'Servicio'} ({pet?.name ?? 'Mascota'})
-                  {a.totalPrice != null && (
-                    <span className="text-gray-500 dark:text-slate-400"> · {formatCOP(a.totalPrice)}</span>
-                  )}
-                </span>
-                <StatusBadge status={a.status} />
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <ul className="space-y-2">
+            {sortedAppointments.slice((citasPage - 1) * CITAS_PAGE_SIZE, citasPage * CITAS_PAGE_SIZE).map((a) => {
+              const pet = pets.find((p) => p.id === a.petId);
+              const service = services.find((s) => s.id === a.serviceId);
+              return (
+                <li
+                  key={a.id}
+                  className="flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm text-text"
+                >
+                  <span>
+                    {a.date} — {a.time} — {service?.name ?? 'Servicio'} ({pet?.name ?? 'Mascota'})
+                    {a.totalPrice != null && (
+                      <span className="text-text-muted"> · {formatCOP(a.totalPrice)}</span>
+                    )}
+                  </span>
+                  <StatusBadge status={a.status} />
+                </li>
+              );
+            })}
+          </ul>
+          <Pagination
+            page={citasPage}
+            pageCount={Math.max(1, Math.ceil(sortedAppointments.length / CITAS_PAGE_SIZE))}
+            total={sortedAppointments.length}
+            pageSize={CITAS_PAGE_SIZE}
+            onPageChange={setCitasPage}
+            itemNoun="citas"
+          />
+        </>
       )}
     </div>
   );

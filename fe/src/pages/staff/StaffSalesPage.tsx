@@ -8,17 +8,22 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import * as productsApi from '@/api/products';
 import * as staffApi from '@/api/staff';
 import * as salesApi from '@/api/sales';
 import type { Product } from '@/types/products';
 import type { ClientSummary } from '@/types/staff';
+import { formatCOP } from '@/types/pricing';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { Alert } from '@/components/ui/Alert';
+import { useToast } from '@/hooks/useToast';
 
 export function StaffSalesPage() {
+  const { showToast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
 
@@ -29,11 +34,12 @@ export function StaffSalesPage() {
   const [isSearching, setIsSearching] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const productsPage = usePagination(products, 10);
+
   useEffect(() => {
-    productsApi.listProducts().then(setProducts);
+    productsApi.listProducts({ limit: 100 }).then((r) => setProducts(r.products));
   }, []);
 
   const setQuantity = (productId: string, quantity: number) => {
@@ -74,20 +80,19 @@ export function StaffSalesPage() {
     }
     setIsSubmitting(true);
     setError(null);
-    setSuccess(false);
     try {
       await salesApi.createSale({
         items: cartItems.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
         clientId: selectedClient?.id,
         clientName: !selectedClient && clientName.trim() ? clientName.trim() : undefined,
       });
-      setSuccess(true);
+      showToast('Venta registrada.', 'success');
       setCart({});
       setSelectedClient(null);
       setClientName('');
       setResults([]);
       setQuery('');
-      productsApi.listProducts().then(setProducts);
+      productsApi.listProducts({ limit: 100 }).then((r) => setProducts(r.products));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo registrar la venta.');
     } finally {
@@ -96,124 +101,135 @@ export function StaffSalesPage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-10">
-      <Link to="/staff" className="text-sm text-gray-500 dark:text-slate-400 hover:underline">
-        ← Volver
-      </Link>
+    <div className="mx-auto max-w-5xl">
+      <PageHeader
+        title="Registrar venta de mostrador"
+        description="Ventas que no pasan por el carrito de la app. Nacen ya pagadas y completadas."
+      />
 
-      <h1 className="text-2xl font-comic tracking-wide text-gray-900 dark:text-slate-100 mt-4 mb-6">
-        💰 Registrar Venta de Mostrador
-      </h1>
-
-      {success && (
-        <div className="mb-4">
-          <Alert type="success" message="Venta registrada correctamente." />
-        </div>
-      )}
       {error && (
         <div className="mb-4">
           <Alert type="error" message={error} />
         </div>
       )}
 
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Comprador (opcional)</h2>
-      {selectedClient ? (
-        <div className="mb-6 flex items-center justify-between rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm">
-          <span>
-            <strong className="text-gray-900 dark:text-slate-100">{selectedClient.firstName} {selectedClient.lastName}</strong> — {selectedClient.email}
-          </span>
-          <button onClick={() => setSelectedClient(null)} className="text-brand-600 dark:text-brand-400 hover:underline">
-            Quitar
-          </button>
-        </div>
-      ) : (
-        <div className="mb-6 space-y-3">
-          <form onSubmit={handleSearch} className="flex gap-2">
-            <div className="flex-1">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <div>
+          <h2 className="text-lg font-semibold text-text mb-3">Comprador (opcional)</h2>
+          {selectedClient ? (
+            <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm">
+              <span>
+                <strong className="text-text">{selectedClient.firstName} {selectedClient.lastName}</strong> — {selectedClient.email}
+              </span>
+              <button onClick={() => setSelectedClient(null)} className="text-[color:var(--color-primary)] hover:underline">
+                Quitar
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <form onSubmit={handleSearch} className="flex gap-2">
+                <div className="flex-1">
+                  <InputField
+                    id="query"
+                    name="query"
+                    label="Buscar cliente con cuenta (opcional)"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Nombre, email o documento"
+                    maxLength={100}
+                  />
+                </div>
+                <div className="pt-7">
+                  <Button type="submit" isLoading={isSearching}>Buscar</Button>
+                </div>
+              </form>
+              {results.length > 0 && (
+                <ul className="space-y-2">
+                  {results.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        onClick={() => { setSelectedClient(c); setResults([]); }}
+                        className="w-full text-left rounded-lg border border-border px-4 py-3 text-sm hover:border-brand-400 dark:hover:border-brand-500"
+                      >
+                        {c.firstName} {c.lastName} — {c.email}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <InputField
-                id="query"
-                name="query"
-                label="Buscar cliente con cuenta (opcional)"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Nombre, email o documento"
+                id="clientName"
+                name="clientName"
+                label="O nombre del comprador ocasional (sin cuenta)"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder="Ej: Cliente de mostrador"
+                maxLength={150}
               />
             </div>
-            <div className="pt-7">
-              <Button type="submit" isLoading={isSearching}>Buscar</Button>
+          )}
+
+          {cartItems.length > 0 && (
+            <div className="mt-6 rounded-lg border border-border px-4 py-3">
+              <p className="font-medium text-text mb-2">Total: {formatCOP(total)}</p>
+              <Button isLoading={isSubmitting} onClick={handleSubmit}>Registrar venta</Button>
             </div>
-          </form>
-          {results.length > 0 && (
+          )}
+        </div>
+
+        <div>
+          <h2 className="text-lg font-semibold text-text mb-3">Productos</h2>
+          {products.length === 0 ? (
+            <p className="text-sm text-text-muted">No hay productos disponibles.</p>
+          ) : (
+            <>
             <ul className="space-y-2">
-              {results.map((c) => (
-                <li key={c.id}>
-                  <button
-                    onClick={() => { setSelectedClient(c); setResults([]); }}
-                    className="w-full text-left rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm hover:border-brand-400 dark:hover:border-brand-500"
-                  >
-                    {c.firstName} {c.lastName} — {c.email}
-                  </button>
+              {productsPage.pageItems.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm"
+                >
+                  <div>
+                    <p className="font-medium text-text">{p.name}</p>
+                    <p className="text-text-muted">
+                      {formatCOP(p.price)} — {p.stock} disponibles
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      className="text-xs px-2 py-1"
+                      disabled={!cart[p.id]}
+                      onClick={() => setQuantity(p.id, (cart[p.id] ?? 0) - 1)}
+                    >
+                      −
+                    </Button>
+                    <span className="w-6 text-center">{cart[p.id] ?? 0}</span>
+                    <Button
+                      variant="secondary"
+                      className="text-xs px-2 py-1"
+                      disabled={(cart[p.id] ?? 0) >= p.stock}
+                      onClick={() => setQuantity(p.id, (cart[p.id] ?? 0) + 1)}
+                    >
+                      +
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
+            <Pagination
+              page={productsPage.page}
+              pageCount={productsPage.pageCount}
+              total={productsPage.total}
+              pageSize={productsPage.pageSize}
+              onPageChange={productsPage.setPage}
+              onPageSizeChange={productsPage.setPageSize}
+              itemNoun="productos"
+            />
+            </>
           )}
-          <InputField
-            id="clientName"
-            name="clientName"
-            label="O nombre del comprador ocasional (sin cuenta)"
-            value={clientName}
-            onChange={(e) => setClientName(e.target.value)}
-            placeholder="Ej: Cliente de mostrador"
-          />
         </div>
-      )}
-
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Productos</h2>
-      {products.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-slate-400 mb-6">No hay productos disponibles.</p>
-      ) : (
-        <ul className="space-y-2 mb-6">
-          {products.map((p) => (
-            <li
-              key={p.id}
-              className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm"
-            >
-              <div>
-                <p className="font-medium text-gray-900 dark:text-slate-100">{p.name}</p>
-                <p className="text-gray-500 dark:text-slate-400">
-                  ${p.price.toLocaleString('es-CO')} — {p.stock} disponibles
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  className="text-xs px-2 py-1"
-                  disabled={!cart[p.id]}
-                  onClick={() => setQuantity(p.id, (cart[p.id] ?? 0) - 1)}
-                >
-                  −
-                </Button>
-                <span className="w-6 text-center">{cart[p.id] ?? 0}</span>
-                <Button
-                  variant="secondary"
-                  className="text-xs px-2 py-1"
-                  disabled={(cart[p.id] ?? 0) >= p.stock}
-                  onClick={() => setQuantity(p.id, (cart[p.id] ?? 0) + 1)}
-                >
-                  +
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {cartItems.length > 0 && (
-        <div className="rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3">
-          <p className="font-medium text-gray-900 dark:text-slate-100 mb-2">Total: ${total.toLocaleString('es-CO')}</p>
-          <Button isLoading={isSubmitting} onClick={handleSubmit}>Registrar venta</Button>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

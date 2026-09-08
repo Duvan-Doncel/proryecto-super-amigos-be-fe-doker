@@ -50,7 +50,7 @@ export function ForgotPasswordPage() {
             message="Si el correo está registrado, recibirás un enlace de recuperación en breve."
           />
           <div className="mt-4 flex justify-end">
-            <Link to="/login" className="text-sm text-brand-600 dark:text-brand-400 hover:underline">
+            <Link to="/login" className="text-sm text-[color:var(--color-primary)] hover:underline">
               Volver a iniciar sesión
             </Link>
           </div>
@@ -63,10 +63,10 @@ export function ForgotPasswordPage() {
     <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-8">
-          <h1 className="text-2xl font-comic tracking-wide text-gray-900 dark:text-slate-100 mb-1">
+          <h1 className="text-2xl font-display tracking-wide text-text mb-1">
             Recuperar contraseña
           </h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400">
+          <p className="text-sm text-text-muted">
             Ingresa tu correo y te enviaremos un enlace para restablecerla.
           </p>
         </div>
@@ -82,6 +82,7 @@ export function ForgotPasswordPage() {
             value={email}
             onChange={handleChange}
             placeholder="tucorreo@ejemplo.com"
+            maxLength={255}
             error={emailError}
           />
 

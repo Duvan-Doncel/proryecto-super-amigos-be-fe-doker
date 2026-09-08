@@ -85,10 +85,10 @@ export function ChangePasswordPage() {
     <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-8">
-          <h1 className="text-2xl font-comic tracking-wide text-gray-900 dark:text-slate-100 mb-1">
+          <h1 className="text-2xl font-display tracking-wide text-text mb-1">
             Cambiar contraseña
           </h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400">
+          <p className="text-sm text-text-muted">
             Ingresa tu contraseña actual y la nueva.
           </p>
         </div>
@@ -109,6 +109,7 @@ export function ChangePasswordPage() {
               value={formData.currentPassword}
               onChange={handleChange}
               placeholder="••••••••"
+              maxLength={72}
               error={errors.currentPassword}
             />
 
@@ -122,6 +123,7 @@ export function ChangePasswordPage() {
               value={formData.newPassword}
               onChange={handleChange}
               placeholder="••••••••"
+              maxLength={72}
               error={errors.newPassword}
             />
 
@@ -135,6 +137,7 @@ export function ChangePasswordPage() {
               value={formData.confirmNewPassword}
               onChange={handleChange}
               placeholder="••••••••"
+              maxLength={72}
               error={errors.confirmNewPassword}
             />
 

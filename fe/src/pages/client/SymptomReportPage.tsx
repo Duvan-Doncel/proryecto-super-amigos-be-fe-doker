@@ -67,11 +67,11 @@ export function SymptomReportPage() {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
-      <Link to="/app" className="text-sm text-gray-500 dark:text-slate-400 hover:underline">
+      <Link to="/app" className="text-sm text-text-muted hover:underline">
         ← Volver
       </Link>
 
-      <h1 className="text-2xl font-comic tracking-wide text-gray-900 dark:text-slate-100 mt-4 mb-6">
+      <h1 className="text-2xl font-display tracking-wide text-text mt-4 mb-6">
         🟡 Reportar Síntoma Leve
       </h1>
 
@@ -107,6 +107,7 @@ export function SymptomReportPage() {
           value={formData.symptom}
           onChange={handleChange}
           placeholder="Ej: No quiere comer, está decaído"
+          maxLength={500}
         />
 
         <InputField
@@ -128,22 +129,22 @@ export function SymptomReportPage() {
         </div>
       </form>
 
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Mis reportes</h2>
+      <h2 className="text-lg font-semibold text-text mb-3">Mis reportes</h2>
       {reports.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-slate-400">Todavía no has enviado reportes.</p>
+        <p className="text-sm text-text-muted">Todavía no has enviado reportes.</p>
       ) : (
         <ul className="space-y-3">
           {reports.map((r) => {
             const pet = pets.find((p) => p.id === r.petId);
             return (
-              <li key={r.id} className="rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm">
+              <li key={r.id} className="rounded-lg border border-border px-4 py-3 text-sm">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-gray-900 dark:text-slate-100">
+                  <span className="font-medium text-text">
                     {pet?.name ?? 'Mascota'} — {r.symptom}
                   </span>
                   <StatusBadge status={r.status} />
                 </div>
-                <p className="text-gray-500 dark:text-slate-400">Hace {r.daysWithSymptom} día(s)</p>
+                <p className="text-text-muted">Hace {r.daysWithSymptom} día(s)</p>
                 {r.recommendation && (
                   <p className="mt-2 text-green-700 dark:text-green-400">
                     <strong>Recomendación:</strong> {r.recommendation}

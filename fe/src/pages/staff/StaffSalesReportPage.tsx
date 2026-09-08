@@ -1,101 +1,122 @@
 /**
  * Archivo: pages/staff/StaffSalesReportPage.tsx
  * Descripción: Reporte de ventas por rango de fechas (RF-022, HU-022).
- * ¿Para qué? Combina pedidos completados de la app (RF-016) y ventas de mostrador
- *   (RF-023) en un solo total, sin que el staff tenga que sumarlos aparte.
+ * ¿Para qué? Combina pedidos completados de la app (RF-016) y ventas de mostrador (RF-023)
+ *   en un solo total, con el detalle por producto y un gráfico de los que más venden.
  */
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Wallet, Receipt } from 'lucide-react';
 import * as salesApi from '@/api/sales';
 import type { SalesReport } from '@/types/sales';
+import { formatCOP } from '@/types/pricing';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatCard } from '@/components/ui/StatCard';
+import { Card, CardHeader } from '@/components/ui/Card';
+import { DataTable } from '@/components/ui/DataTable';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
-import { Alert } from '@/components/ui/Alert';
+import { BarChart } from '@/components/charts/BarChart';
+import { useToast } from '@/hooks/useToast';
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function firstOfMonthIso(): string {
+const todayIso = () => new Date().toISOString().slice(0, 10);
+const firstOfMonthIso = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-}
+};
 
 export function StaffSalesReportPage() {
+  const { showToast } = useToast();
   const [from, setFrom] = useState(firstOfMonthIso());
   const [to, setTo] = useState(todayIso());
   const [report, setReport] = useState<SalesReport | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const loadReport = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setIsLoading(true);
-    setError(null);
     try {
       setReport(await salesApi.getSalesReport(from, to));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cargar el reporte.');
+      showToast(err instanceof Error ? err.message : 'No se pudo cargar el reporte.', 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const byProduct = (report?.byProduct ?? []).slice().sort((a, b) => b.revenue - a.revenue);
+  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(byProduct, 10);
+  const top5 = byProduct.slice(0, 5).map((p) => ({ label: p.name, value: p.revenue }));
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10">
-      <Link to="/staff" className="text-sm text-gray-500 dark:text-slate-400 hover:underline">
-        ← Volver
-      </Link>
+    <div className="mx-auto max-w-4xl">
+      <PageHeader
+        title="Reporte de ventas"
+        description="Ingresos de la app y de mostrador en el rango de fechas que elijas."
+      />
 
-      <h1 className="text-2xl font-comic tracking-wide text-gray-900 dark:text-slate-100 mt-4 mb-6">
-        📊 Reporte de Ventas
-      </h1>
-
-      <form onSubmit={loadReport} className="flex flex-wrap gap-3 items-end mb-6">
-        <InputField id="from" name="from" label="Desde" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-        <InputField id="to" name="to" label="Hasta" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-        <Button type="submit" isLoading={isLoading}>Consultar</Button>
-      </form>
-
-      {error && (
-        <div className="mb-4">
-          <Alert type="error" message={error} />
-        </div>
-      )}
+      <Card className="mb-6">
+        <form onSubmit={loadReport} className="flex flex-wrap items-end gap-3">
+          <div className="w-40">
+            <InputField id="from" name="from" label="Desde" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div className="w-40">
+            <InputField id="to" name="to" label="Hasta" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+          <Button type="submit" isLoading={isLoading}>Consultar</Button>
+        </form>
+      </Card>
 
       {report && (
-        <>
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3">
-              <p className="text-xs text-gray-500 dark:text-slate-400">Total vendido</p>
-              <p className="text-xl font-semibold text-gray-900 dark:text-slate-100">
-                ${report.totalRevenue.toLocaleString('es-CO')}
-              </p>
-            </div>
-            <div className="rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3">
-              <p className="text-xs text-gray-500 dark:text-slate-400">Transacciones</p>
-              <p className="text-xl font-semibold text-gray-900 dark:text-slate-100">{report.totalOrders}</p>
-            </div>
+        <div className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <StatCard label="Total vendido" value={formatCOP(report.totalRevenue)} icon={<Wallet className="h-4 w-4" />} accent="success" />
+            <StatCard label="Transacciones" value={report.totalOrders} icon={<Receipt className="h-4 w-4" />} accent="brand" />
           </div>
 
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Por producto</h2>
-          {report.byProduct.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-slate-400">No hay ventas en este rango de fechas.</p>
-          ) : (
-            <ul className="space-y-2">
-              {report.byProduct.map((p) => (
-                <li
-                  key={p.productId}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm"
-                >
-                  <span className="text-gray-900 dark:text-slate-100">{p.name} — {p.unitsSold} unidad(es)</span>
-                  <span className="font-medium text-gray-900 dark:text-slate-100">${p.revenue.toLocaleString('es-CO')}</span>
-                </li>
-              ))}
-            </ul>
+          {top5.length > 0 && (
+            <Card>
+              <CardHeader title="Productos que más venden" description="Por ingresos en el rango consultado." />
+              <BarChart title="Productos que más venden" data={top5} formatValue={formatCOP} />
+            </Card>
           )}
-        </>
+
+          <div>
+            <h2 className="mb-3 font-display text-lg font-bold text-text">Detalle por producto</h2>
+            <DataTable
+              head={
+                <>
+                  <th>Producto</th>
+                  <th>Unidades</th>
+                  <th className="text-right">Ingresos</th>
+                </>
+              }
+              isEmpty={byProduct.length === 0}
+              emptyTitle="No hay ventas en este rango de fechas"
+            >
+              {pageItems.map((p) => (
+                <tr key={p.productId}>
+                  <td className="text-text">{p.name}</td>
+                  <td className="text-text-muted">{p.unitsSold}</td>
+                  <td className="text-right tabular-nums text-text">{formatCOP(p.revenue)}</td>
+                </tr>
+              ))}
+            </DataTable>
+            {byProduct.length > 0 && (
+              <Pagination
+                page={page}
+                pageCount={pageCount}
+                total={total}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                itemNoun="productos"
+              />
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -37,7 +37,7 @@ export function PrivacyPage() {
           Correo para asuntos de datos personales:{' '}
           <a
             href={`mailto:${BUSINESS.correoDatos}`}
-            className="text-brand-600 dark:text-brand-400 hover:underline"
+            className="text-[color:var(--color-primary)] hover:underline"
           >
             {BUSINESS.correoDatos}
           </a>
@@ -120,7 +120,7 @@ export function PrivacyPage() {
           correo{' '}
           <a
             href={`mailto:${BUSINESS.correoDatos}`}
-            className="text-brand-600 dark:text-brand-400 hover:underline"
+            className="text-[color:var(--color-primary)] hover:underline"
           >
             {BUSINESS.correoDatos}
           </a>{' '}
@@ -170,7 +170,7 @@ export function PrivacyPage() {
           Esta política rige desde su publicación. Cualquier cambio sustancial se informará a
           través de la plataforma. La versión vigente, con su fecha, siempre estará disponible
           en esta página y se relaciona con los{' '}
-          <Link to="/terminos" className="text-brand-600 dark:text-brand-400 hover:underline">
+          <Link to="/terminos" className="text-[color:var(--color-primary)] hover:underline">
             Términos y Condiciones
           </Link>
           .

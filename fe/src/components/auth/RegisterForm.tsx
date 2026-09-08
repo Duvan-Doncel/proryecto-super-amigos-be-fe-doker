@@ -179,10 +179,10 @@ export function RegisterForm({ onNavigate, onGoToLogin }: RegisterFormProps) {
   if (registered) {
     return (
       <div className="text-center space-y-4 py-2">
-        <h3 className="text-lg font-comic tracking-wide text-gray-900 dark:text-slate-100">
+        <h3 className="text-lg font-display tracking-wide text-text">
           ¡Ya casi! Revisa tu correo
         </h3>
-        <p className="text-sm text-gray-600 dark:text-slate-400">
+        <p className="text-sm text-text-muted">
           Te enviamos un enlace de verificación. Haz clic en él para activar tu cuenta antes de
           iniciar sesión.
         </p>
@@ -190,14 +190,14 @@ export function RegisterForm({ onNavigate, onGoToLogin }: RegisterFormProps) {
           <button
             type="button"
             onClick={onGoToLogin}
-            className="inline-block text-sm text-brand-600 dark:text-brand-400 hover:underline"
+            className="inline-block text-sm text-[color:var(--color-primary)] hover:underline"
           >
             Ir a iniciar sesión →
           </button>
         ) : (
           <Link
             to="/login"
-            className="inline-block text-sm text-brand-600 dark:text-brand-400 hover:underline"
+            className="inline-block text-sm text-[color:var(--color-primary)] hover:underline"
           >
             Ir a iniciar sesión →
           </Link>
@@ -221,34 +221,39 @@ export function RegisterForm({ onNavigate, onGoToLogin }: RegisterFormProps) {
         value={formData.documentId}
         onChange={handleChange}
         placeholder="Ej: 1234567890"
+        maxLength={20}
         error={errors.documentId}
       />
 
-      <InputField
-        id="firstName"
-        name="firstName"
-        label="Nombre"
-        type="text"
-        autoComplete="given-name"
-        required
-        value={formData.firstName}
-        onChange={handleChange}
-        placeholder="Ej: Juan"
-        error={errors.firstName}
-      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <InputField
+          id="firstName"
+          name="firstName"
+          label="Nombre"
+          type="text"
+          autoComplete="given-name"
+          required
+          value={formData.firstName}
+          onChange={handleChange}
+          placeholder="Ej: Juan"
+          maxLength={100}
+          error={errors.firstName}
+        />
 
-      <InputField
-        id="lastName"
-        name="lastName"
-        label="Apellido"
-        type="text"
-        autoComplete="family-name"
-        required
-        value={formData.lastName}
-        onChange={handleChange}
-        placeholder="Ej: Pérez"
-        error={errors.lastName}
-      />
+        <InputField
+          id="lastName"
+          name="lastName"
+          label="Apellido"
+          type="text"
+          autoComplete="family-name"
+          required
+          value={formData.lastName}
+          onChange={handleChange}
+          placeholder="Ej: Pérez"
+          maxLength={100}
+          error={errors.lastName}
+        />
+      </div>
 
       <InputField
         id="phone"
@@ -261,6 +266,7 @@ export function RegisterForm({ onNavigate, onGoToLogin }: RegisterFormProps) {
         value={formData.phone}
         onChange={handleChange}
         placeholder="Ej: 3001234567"
+        maxLength={15}
         error={errors.phone}
       />
 
@@ -274,6 +280,7 @@ export function RegisterForm({ onNavigate, onGoToLogin }: RegisterFormProps) {
         value={formData.email}
         onChange={handleChange}
         placeholder="tucorreo@ejemplo.com"
+        maxLength={255}
         error={errors.email}
       />
 
@@ -287,6 +294,7 @@ export function RegisterForm({ onNavigate, onGoToLogin }: RegisterFormProps) {
         value={formData.password}
         onChange={handleChange}
         placeholder="••••••••"
+        maxLength={72}
         error={errors.password}
       />
 
@@ -300,11 +308,12 @@ export function RegisterForm({ onNavigate, onGoToLogin }: RegisterFormProps) {
         value={formData.confirmPassword}
         onChange={handleChange}
         placeholder="••••••••"
+        maxLength={72}
         error={errors.confirmPassword}
       />
 
       {/* ─── Casilla de aceptación de documentos legales + sello de consentimiento ─── */}
-      <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 p-3">
+      <div className="rounded-lg border border-border bg-surface-2 p-3">
         <label htmlFor="acceptedLegal" className="flex items-start gap-2.5 text-sm cursor-pointer">
           <input
             id="acceptedLegal"
@@ -314,14 +323,14 @@ export function RegisterForm({ onNavigate, onGoToLogin }: RegisterFormProps) {
             onChange={handleAcceptChange}
             aria-invalid={!!errors.acceptedLegal}
             aria-describedby={errors.acceptedLegal ? 'acceptedLegal-error' : undefined}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 dark:border-slate-600 text-brand-600 focus:ring-brand-500"
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-brand-600 focus:ring-brand-500"
           />
-          <span className="text-gray-700 dark:text-slate-300">
+          <span className="text-text">
             He leído y acepto los{' '}
             <Link
               to="/terminos"
               onClick={onNavigate}
-              className="text-brand-600 dark:text-brand-400 hover:underline"
+              className="text-[color:var(--color-primary)] hover:underline"
             >
               Términos y Condiciones
             </Link>{' '}
@@ -329,7 +338,7 @@ export function RegisterForm({ onNavigate, onGoToLogin }: RegisterFormProps) {
             <Link
               to="/privacidad"
               onClick={onNavigate}
-              className="text-brand-600 dark:text-brand-400 hover:underline"
+              className="text-[color:var(--color-primary)] hover:underline"
             >
               Política de Privacidad y Tratamiento de Datos Personales
             </Link>
@@ -338,7 +347,7 @@ export function RegisterForm({ onNavigate, onGoToLogin }: RegisterFormProps) {
         </label>
 
         {acceptedLegal && acceptedAt && (
-          <p className="mt-2 pl-6 text-xs text-gray-500 dark:text-slate-400">
+          <p className="mt-2 pl-6 text-xs text-text-muted">
             Consentimiento registrado en este equipo: {acceptedAt} · versión {LEGAL_VERSION}
           </p>
         )}

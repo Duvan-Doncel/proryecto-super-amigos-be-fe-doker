@@ -23,7 +23,7 @@ export function TermsPage() {
           con domicilio en {BUSINESS.direccion}. Al crear una cuenta, iniciar sesión o usar
           cualquier función del sitio, el usuario declara que leyó, entendió y acepta estos
           términos y la{' '}
-          <Link to="/privacidad" className="text-brand-600 dark:text-brand-400 hover:underline">
+          <Link to="/privacidad" className="text-[color:var(--color-primary)] hover:underline">
             Política de Privacidad y Tratamiento de Datos Personales
           </Link>
           .
@@ -82,7 +82,7 @@ export function TermsPage() {
           Los precios de los servicios de grooming se calculan a partir de un precio base más
           recargos por tamaño, tipo de pelo, condiciones de piel y comportamiento de la
           mascota, según se explica en la sección{' '}
-          <Link to="/precios" className="text-brand-600 dark:text-brand-400 hover:underline">
+          <Link to="/precios" className="text-[color:var(--color-primary)] hover:underline">
             «Cómo calculamos el precio»
           </Link>
           . El valor mostrado en la plataforma antes de la cita es un{' '}
@@ -118,7 +118,7 @@ export function TermsPage() {
           reclamo puede presentarse en el local o a través del correo{' '}
           <a
             href={`mailto:${BUSINESS.correoContacto}`}
-            className="text-brand-600 dark:text-brand-400 hover:underline"
+            className="text-[color:var(--color-primary)] hover:underline"
           >
             {BUSINESS.correoContacto}
           </a>
@@ -191,7 +191,7 @@ export function TermsPage() {
           Correo:{' '}
           <a
             href={`mailto:${BUSINESS.correoContacto}`}
-            className="text-brand-600 dark:text-brand-400 hover:underline"
+            className="text-[color:var(--color-primary)] hover:underline"
           >
             {BUSINESS.correoContacto}
           </a>

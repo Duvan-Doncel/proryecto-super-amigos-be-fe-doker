@@ -6,11 +6,13 @@
  */
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import * as authApi from '@/api/auth';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { Alert } from '@/components/ui/Alert';
+import { useToast } from '@/hooks/useToast';
 
 interface FormData {
   firstName: string;
@@ -22,9 +24,9 @@ interface FormData {
 const EMPTY_FORM: FormData = { firstName: '', lastName: '', email: '', password: '' };
 
 export function StaffCreateAccountPage() {
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,10 +38,9 @@ export function StaffCreateAccountPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
-    setSuccess(false);
     try {
       await authApi.createStaff(formData);
-      setSuccess(true);
+      showToast('Cuenta de staff creada.', 'success');
       setFormData(EMPTY_FORM);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la cuenta de staff.');
@@ -49,67 +50,65 @@ export function StaffCreateAccountPage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-10">
-      <Link to="/staff" className="text-sm text-gray-500 dark:text-slate-400 hover:underline">
-        ← Volver
-      </Link>
+    <div className="mx-auto max-w-2xl">
+      <PageHeader
+        title="Nueva cuenta de staff"
+        description="Solo el staff puede crear otras cuentas de staff — no hay registro público para este rol."
+      />
 
-      <h1 className="text-2xl font-comic tracking-wide text-gray-900 dark:text-slate-100 mt-4 mb-1">
-        👤 Nueva Cuenta de Staff
-      </h1>
-      <p className="text-sm text-gray-500 dark:text-slate-400 mb-6">
-        Solo el staff puede crear otras cuentas de staff — no hay registro público para este rol.
-      </p>
-
-      {success && (
-        <div className="mb-4">
-          <Alert type="success" message="Cuenta de staff creada correctamente." />
-        </div>
-      )}
-
+      <Card>
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         {error && <Alert type="error" message={error} />}
 
-        <InputField
-          id="firstName"
-          name="firstName"
-          label="Nombre"
-          required
-          value={formData.firstName}
-          onChange={handleChange}
-        />
-        <InputField
-          id="lastName"
-          name="lastName"
-          label="Apellido"
-          required
-          value={formData.lastName}
-          onChange={handleChange}
-        />
-        <InputField
-          id="email"
-          name="email"
-          label="Email"
-          type="email"
-          required
-          value={formData.email}
-          onChange={handleChange}
-        />
-        <InputField
-          id="password"
-          name="password"
-          label="Contraseña"
-          type="password"
-          required
-          value={formData.password}
-          onChange={handleChange}
-          placeholder="Mín. 8 caracteres, 1 mayúscula, 1 minúscula, 1 número"
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <InputField
+            id="firstName"
+            name="firstName"
+            label="Nombre"
+            required
+            value={formData.firstName}
+            onChange={handleChange}
+            maxLength={100}
+          />
+          <InputField
+            id="lastName"
+            name="lastName"
+            label="Apellido"
+            required
+            value={formData.lastName}
+            onChange={handleChange}
+            maxLength={100}
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <InputField
+            id="email"
+            name="email"
+            label="Email"
+            type="email"
+            required
+            value={formData.email}
+            onChange={handleChange}
+            maxLength={255}
+          />
+          <InputField
+            id="password"
+            name="password"
+            label="Contraseña"
+            type="password"
+            required
+            value={formData.password}
+            onChange={handleChange}
+            placeholder="Mín. 8 caracteres, 1 mayúscula, 1 minúscula, 1 número"
+            maxLength={72}
+          />
+        </div>
 
         <div className="flex justify-end pt-2">
           <Button type="submit" isLoading={isSubmitting}>Crear cuenta</Button>
         </div>
       </form>
+      </Card>
     </div>
   );
 }

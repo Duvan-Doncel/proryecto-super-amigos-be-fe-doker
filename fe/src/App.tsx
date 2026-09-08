@@ -8,10 +8,13 @@
  */
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from '@/context/ThemeProvider';
+import { ToastProvider } from '@/context/ToastProvider';
 import { AuthProvider } from '@/context/AuthContext';
 import { AuthModalProvider } from '@/context/AuthModalProvider';
 import { ProtectedRoute } from '@/components/ui/ProtectedRoute';
 import { Layout } from '@/components/layout/Layout';
+import { StaffLayout } from '@/components/layout/StaffLayout';
 import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
@@ -23,6 +26,7 @@ import { PricingInfoPage } from '@/pages/PricingInfoPage';
 import { TermsPage } from '@/pages/legal/TermsPage';
 import { PrivacyPage } from '@/pages/legal/PrivacyPage';
 import { ClientHomePage } from '@/pages/client/ClientHomePage';
+import { ProfilePage } from '@/pages/client/ProfilePage';
 import { AppointmentPage } from '@/pages/client/AppointmentPage';
 import { SymptomReportPage } from '@/pages/client/SymptomReportPage';
 import { EmergencyPage } from '@/pages/client/EmergencyPage';
@@ -40,12 +44,15 @@ import { StaffSupplierOrdersPage } from '@/pages/staff/StaffSupplierOrdersPage';
 import { StaffSalesPage } from '@/pages/staff/StaffSalesPage';
 import { StaffSalesReportPage } from '@/pages/staff/StaffSalesReportPage';
 import { StaffCreateAccountPage } from '@/pages/staff/StaffCreateAccountPage';
+import { StaffClientsPage } from '@/pages/staff/StaffClientsPage';
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AuthModalProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <AuthModalProvider>
         <Routes>
           {/* ─── Rutas públicas — accesibles sin autenticación ─── */}
           <Route path="/" element={<Layout><LandingPage /></Layout>} />
@@ -64,6 +71,14 @@ function App() {
             element={
               <ProtectedRoute role="client">
                 <Layout><ClientHomePage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/app/perfil"
+            element={
+              <ProtectedRoute role="client">
+                <Layout><ProfilePage /></Layout>
               </ProtectedRoute>
             }
           />
@@ -101,110 +116,34 @@ function App() {
           />
 
           {/* ─── Zona del staff — solo role: staff ─── */}
+          {/* ¿Qué? Un único ProtectedRoute + StaffLayout envuelve todas las sub-rutas.
+             ¿Para qué? StaffLayout trae su propio sidebar de navegación (reemplaza el
+               Navbar/Footer públicos) — repetirlo por página duplicaría el chequeo de rol
+               y el layout en cada una. Las rutas hijas son relativas y se renderizan en
+               el <Outlet/> de StaffLayout. */}
           <Route
             path="/staff"
             element={
               <ProtectedRoute role="staff">
-                <Layout><StaffHomePage /></Layout>
+                <StaffLayout />
               </ProtectedRoute>
             }
-          />
-          <Route
-            path="/staff/agenda"
-            element={
-              <ProtectedRoute role="staff">
-                <Layout><StaffAgendaPage /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/staff/mascotas"
-            element={
-              <ProtectedRoute role="staff">
-                <Layout><StaffPetsPage /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/staff/sintomas"
-            element={
-              <ProtectedRoute role="staff">
-                <Layout><StaffSymptomsPage /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/staff/servicios"
-            element={
-              <ProtectedRoute role="staff">
-                <Layout><StaffServicesPage /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/staff/tarifario"
-            element={
-              <ProtectedRoute role="staff">
-                <Layout><StaffPricingPage /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/staff/productos"
-            element={
-              <ProtectedRoute role="staff">
-                <Layout><StaffProductsPage /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/staff/pedidos"
-            element={
-              <ProtectedRoute role="staff">
-                <Layout><StaffOrdersPage /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/staff/proveedores"
-            element={
-              <ProtectedRoute role="staff">
-                <Layout><StaffSuppliersPage /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/staff/pedidos-proveedor"
-            element={
-              <ProtectedRoute role="staff">
-                <Layout><StaffSupplierOrdersPage /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/staff/ventas"
-            element={
-              <ProtectedRoute role="staff">
-                <Layout><StaffSalesPage /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/staff/reporte-ventas"
-            element={
-              <ProtectedRoute role="staff">
-                <Layout><StaffSalesReportPage /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/staff/nueva-cuenta"
-            element={
-              <ProtectedRoute role="staff">
-                <Layout><StaffCreateAccountPage /></Layout>
-              </ProtectedRoute>
-            }
-          />
+          >
+            <Route index element={<StaffHomePage />} />
+            <Route path="clientes" element={<StaffClientsPage />} />
+            <Route path="agenda" element={<StaffAgendaPage />} />
+            <Route path="mascotas" element={<StaffPetsPage />} />
+            <Route path="sintomas" element={<StaffSymptomsPage />} />
+            <Route path="servicios" element={<StaffServicesPage />} />
+            <Route path="tarifario" element={<StaffPricingPage />} />
+            <Route path="productos" element={<StaffProductsPage />} />
+            <Route path="pedidos" element={<StaffOrdersPage />} />
+            <Route path="proveedores" element={<StaffSuppliersPage />} />
+            <Route path="pedidos-proveedor" element={<StaffSupplierOrdersPage />} />
+            <Route path="ventas" element={<StaffSalesPage />} />
+            <Route path="reporte-ventas" element={<StaffSalesReportPage />} />
+            <Route path="nueva-cuenta" element={<StaffCreateAccountPage />} />
+          </Route>
 
           {/* ─── Común a ambos roles ─── */}
           <Route
@@ -221,7 +160,7 @@ function App() {
             element={
               <Layout>
                 <div className="min-h-[60vh] flex items-center justify-center">
-                  <p className="text-gray-500 dark:text-slate-400 text-sm">
+                  <p className="text-text-muted text-sm">
                     404 — Página no encontrada
                   </p>
                 </div>
@@ -229,9 +168,11 @@ function App() {
             }
           />
         </Routes>
-        </AuthModalProvider>
-      </BrowserRouter>
-    </AuthProvider>
+            </AuthModalProvider>
+          </BrowserRouter>
+        </AuthProvider>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 

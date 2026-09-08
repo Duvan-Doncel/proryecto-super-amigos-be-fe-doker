@@ -1,23 +1,31 @@
 /**
  * Archivo: pages/staff/StaffSupplierOrdersPage.tsx
  * Descripción: Pedidos de reabastecimiento a proveedores (RF-021, HU-021).
- * ¿Para qué? El stock de un producto solo se incrementa cuando el pedido se marca
- *   como recibido (RN-212) — nunca al crearlo, para no sumar mercancía que aún no llegó.
+ * ¿Para qué? El stock de un producto solo sube cuando el pedido se marca como recibido
+ *   (RN-212) — nunca al crearlo, para no sumar mercancía que aún no llegó.
  */
 
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Truck, Plus } from 'lucide-react';
 import * as suppliersApi from '@/api/suppliers';
 import * as productsApi from '@/api/products';
 import * as supplierOrdersApi from '@/api/supplier-orders';
 import type { Supplier } from '@/types/suppliers';
 import type { Product } from '@/types/products';
 import type { SupplierOrder } from '@/types/supplier-orders';
+import { formatCOP } from '@/types/pricing';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatCard } from '@/components/ui/StatCard';
+import { Card, CardHeader } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { Button } from '@/components/ui/Button';
 import { SelectField } from '@/components/ui/SelectField';
 import { InputField } from '@/components/ui/InputField';
 import { Alert } from '@/components/ui/Alert';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { useToast } from '@/hooks/useToast';
 
 interface DraftItem {
   productId: string;
@@ -28,6 +36,7 @@ interface DraftItem {
 const EMPTY_ITEM: DraftItem = { productId: '', quantity: '', unitCost: '' };
 
 export function StaffSupplierOrdersPage() {
+  const { showToast } = useToast();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<SupplierOrder[]>([]);
@@ -37,22 +46,25 @@ export function StaffSupplierOrdersPage() {
   const [items, setItems] = useState<DraftItem[]>([{ ...EMPTY_ITEM }]);
 
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const loadOrders = () => supplierOrdersApi.listSupplierOrders().then(setOrders);
+  const loadProducts = () =>
+    productsApi.listProductsForStaff(false, { limit: 100 }).then((r) => setProducts(r.products));
 
   useEffect(() => {
     suppliersApi.listSuppliers().then(setSuppliers);
-    productsApi.listProductsForStaff(false).then(setProducts);
+    loadProducts();
     loadOrders();
   }, []);
+
+  const open = useMemo(() => orders.filter((o) => o.status === 'ordered').length, [orders]);
+  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(orders, 8);
 
   const updateItem = (index: number, field: keyof DraftItem, value: string) => {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
   };
-
   const addItemRow = () => setItems((prev) => [...prev, { ...EMPTY_ITEM }]);
   const removeItemRow = (index: number) => setItems((prev) => prev.filter((_, i) => i !== index));
 
@@ -60,7 +72,6 @@ export function StaffSupplierOrdersPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
-    setSuccess(false);
     try {
       await supplierOrdersApi.createSupplierOrder({
         supplierId,
@@ -69,7 +80,7 @@ export function StaffSupplierOrdersPage() {
           .filter((i) => i.productId && i.quantity && i.unitCost)
           .map((i) => ({ productId: i.productId, quantity: Number(i.quantity), unitCost: Number(i.unitCost) })),
       });
-      setSuccess(true);
+      showToast('Pedido creado. El stock se sumará al recibirlo.', 'success');
       setSupplierId('');
       setExpectedDate('');
       setItems([{ ...EMPTY_ITEM }]);
@@ -83,151 +94,124 @@ export function StaffSupplierOrdersPage() {
 
   const handleReceive = async (id: string) => {
     setBusyId(id);
-    setError(null);
     try {
       await supplierOrdersApi.receiveSupplierOrder(id);
-      await Promise.all([loadOrders(), productsApi.listProductsForStaff(false).then(setProducts)]);
+      showToast('Pedido recibido. Stock actualizado.', 'success');
+      await Promise.all([loadOrders(), loadProducts()]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo marcar el pedido como recibido.');
+      showToast(err instanceof Error ? err.message : 'No se pudo marcar como recibido.', 'error');
     } finally {
       setBusyId(null);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10">
-      <Link to="/staff" className="text-sm text-gray-500 dark:text-slate-400 hover:underline">
-        ← Volver
-      </Link>
+    <div className="mx-auto max-w-6xl">
+      <PageHeader
+        title="Pedidos a proveedor"
+        description="Reabastecimiento de inventario. El stock sube solo cuando marcas el pedido como recibido."
+      />
 
-      <h1 className="text-2xl font-comic tracking-wide text-gray-900 dark:text-slate-100 mt-4 mb-6">
-        🚚 Pedidos a Proveedor
-      </h1>
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <StatCard label="Pedidos (total)" value={total} icon={<Truck className="h-4 w-4" />} accent="brand" />
+        <StatCard label="Abiertos" value={open} accent={open > 0 ? 'warning' : 'success'} />
+        <StatCard label="Recibidos" value={total - open} accent="neutral" />
+      </div>
 
-      {success && (
-        <div className="mb-4">
-          <Alert type="success" message="Pedido creado. El stock se sumará cuando lo marques como recibido." />
-        </div>
-      )}
-      {error && (
-        <div className="mb-4">
-          <Alert type="error" message={error} />
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} noValidate className="space-y-4 mb-10">
-        <SelectField
-          id="supplierId"
-          name="supplierId"
-          label="Proveedor"
-          required
-          value={supplierId}
-          onChange={(e) => setSupplierId(e.target.value)}
-        >
-          <option value="" disabled>Selecciona un proveedor</option>
-          {suppliers.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </SelectField>
-
-        <InputField
-          id="expectedDate"
-          name="expectedDate"
-          label="Fecha esperada de entrega (opcional)"
-          type="date"
-          value={expectedDate}
-          onChange={(e) => setExpectedDate(e.target.value)}
-        />
-
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-700 dark:text-slate-300">Productos a pedir</p>
-          {items.map((item, index) => (
-            <div key={index} className="flex gap-2 items-end">
-              <div className="flex-1">
-                <SelectField
-                  id={`product-${index}`}
-                  name={`product-${index}`}
-                  label="Producto"
-                  value={item.productId}
-                  onChange={(e) => updateItem(index, 'productId', e.target.value)}
-                >
-                  <option value="" disabled>Selecciona</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </SelectField>
-              </div>
-              <div className="w-24">
-                <InputField
-                  id={`quantity-${index}`}
-                  name={`quantity-${index}`}
-                  label="Cantidad"
-                  type="number"
-                  min={1}
-                  value={item.quantity}
-                  onChange={(e) => updateItem(index, 'quantity', e.target.value)}
-                />
-              </div>
-              <div className="w-32">
-                <InputField
-                  id={`unitCost-${index}`}
-                  name={`unitCost-${index}`}
-                  label="Costo unitario"
-                  type="number"
-                  min={1}
-                  value={item.unitCost}
-                  onChange={(e) => updateItem(index, 'unitCost', e.target.value)}
-                />
-              </div>
-              {items.length > 1 && (
-                <Button type="button" variant="danger" className="text-xs px-2 py-2" onClick={() => removeItemRow(index)}>
-                  ✕
-                </Button>
-              )}
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
+        <Card>
+          <CardHeader title="Nuevo pedido" />
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+            {error && <Alert type="error" message={error} />}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <SelectField id="supplierId" name="supplierId" label="Proveedor" required value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+                <option value="" disabled>Selecciona un proveedor</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </SelectField>
+              <InputField id="expectedDate" name="expectedDate" label="Fecha esperada (opcional)" type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
             </div>
-          ))}
-          <Button type="button" variant="secondary" className="text-xs px-3 py-1.5" onClick={addItemRow}>
-            + Agregar producto
-          </Button>
-        </div>
 
-        <div className="flex justify-end pt-2">
-          <Button type="submit" isLoading={isSubmitting}>Crear pedido</Button>
-        </div>
-      </form>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-text">Productos a pedir</p>
+              {items.map((item, index) => (
+                <div key={index} className="flex flex-wrap items-end gap-2">
+                  <div className="min-w-[10rem] flex-1">
+                    <SelectField id={`product-${index}`} name={`product-${index}`} label="Producto" value={item.productId} onChange={(e) => updateItem(index, 'productId', e.target.value)}>
+                      <option value="" disabled>Selecciona</option>
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </SelectField>
+                  </div>
+                  <div className="w-20">
+                    <InputField id={`quantity-${index}`} name={`quantity-${index}`} label="Cant." type="number" min={1} value={item.quantity} onChange={(e) => updateItem(index, 'quantity', e.target.value)} />
+                  </div>
+                  <div className="w-28">
+                    <InputField id={`unitCost-${index}`} name={`unitCost-${index}`} label="Costo unit." type="number" min={1} value={item.unitCost} onChange={(e) => updateItem(index, 'unitCost', e.target.value)} />
+                  </div>
+                  {items.length > 1 && (
+                    <Button type="button" variant="danger" className="px-2 py-2 text-xs" onClick={() => removeItemRow(index)} aria-label="Quitar producto">
+                      ✕
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button type="button" variant="secondary" className="px-3 py-1.5 text-xs" onClick={addItemRow}>
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Agregar producto
+              </Button>
+            </div>
 
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Pedidos existentes</h2>
-      {orders.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-slate-400">Todavía no hay pedidos a proveedor.</p>
-      ) : (
-        <ul className="space-y-3">
-          {orders.map((o) => (
-            <li key={o.id} className="rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm">
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-medium text-gray-900 dark:text-slate-100">{o.supplierName}</span>
-                <StatusBadge status={o.status} />
-              </div>
-              <ul className="text-gray-500 dark:text-slate-400 mb-2 pl-4 list-disc">
-                {o.items.map((item) => (
-                  <li key={item.productId}>
-                    {item.quantity}x {item.productName} — costo ${item.unitCost.toLocaleString('es-CO')} c/u
-                  </li>
+            <div className="flex justify-end pt-2">
+              <Button type="submit" isLoading={isSubmitting}>Crear pedido</Button>
+            </div>
+          </form>
+        </Card>
+
+        <div>
+          <h2 className="mb-3 font-display text-lg font-bold text-text">Pedidos registrados</h2>
+          {orders.length === 0 ? (
+            <EmptyState icon={<Truck className="h-6 w-6" />} title="Aún no hay pedidos a proveedor" />
+          ) : (
+            <>
+              <ul className="space-y-3">
+                {pageItems.map((o) => (
+                  <Card key={o.id} padded={false}>
+                    <div className="p-4 text-sm">
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="font-medium text-text">{o.supplierName}</span>
+                        <StatusBadge status={o.status} />
+                      </div>
+                      <ul className="mb-2 list-disc pl-4 text-text-muted">
+                        {o.items.map((item) => (
+                          <li key={item.productId}>
+                            {item.quantity}× {item.productName} — {formatCOP(item.unitCost)} c/u
+                          </li>
+                        ))}
+                      </ul>
+                      {o.status === 'ordered' && (
+                        <Button className="px-3 py-1.5 text-xs" isLoading={busyId === o.id} onClick={() => handleReceive(o.id)}>
+                          Marcar como recibido
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
                 ))}
               </ul>
-              {o.status === 'ordered' && (
-                <Button
-                  variant="primary"
-                  className="text-xs px-3 py-1.5"
-                  isLoading={busyId === o.id}
-                  onClick={() => handleReceive(o.id)}
-                >
-                  Marcar como recibido
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+              <Pagination
+                page={page}
+                pageCount={pageCount}
+                total={total}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                itemNoun="pedidos"
+              />
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

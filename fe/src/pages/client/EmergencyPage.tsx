@@ -23,14 +23,14 @@ export function EmergencyPage() {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
-      <Link to="/app" className="text-sm text-gray-500 dark:text-slate-400 hover:underline">
+      <Link to="/app" className="text-sm text-text-muted hover:underline">
         ← Volver
       </Link>
 
-      <h1 className="text-2xl font-comic tracking-wide text-gray-900 dark:text-slate-100 mt-4 mb-1">
+      <h1 className="text-2xl font-display tracking-wide text-text mt-4 mb-1">
         🔴 Emergencia — Veterinarias Cercanas
       </h1>
-      <p className="text-sm text-gray-500 dark:text-slate-400 mb-6">
+      <p className="text-sm text-text-muted mb-6">
         GroomingSpa no atiende emergencias médicas. Aquí tienes veterinarias cercanas y
         números de contacto inmediato.
       </p>
@@ -47,22 +47,22 @@ export function EmergencyPage() {
           />
         </div>
       ) : (
-        <div className="mb-6 rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm text-gray-500 dark:text-slate-400">
+        <div className="mb-6 rounded-lg border border-border px-4 py-3 text-sm text-text-muted">
           Mapa no disponible (falta configurar VITE_MAPS_API_KEY en el .env).
         </div>
       )}
 
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">
+      <h2 className="text-lg font-semibold text-text mb-3">
         📞 Números de emergencia
       </h2>
       <ul className="space-y-2">
         {(info?.emergencyPhones ?? []).map((p) => (
           <li
             key={p.phone}
-            className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm"
+            className="flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm"
           >
-            <span className="text-gray-700 dark:text-slate-300">{p.label}</span>
-            <a href={`tel:${p.phone}`} className="font-semibold text-brand-600 dark:text-brand-400">
+            <span className="text-text">{p.label}</span>
+            <a href={`tel:${p.phone}`} className="font-semibold text-[color:var(--color-primary)]">
               {p.phone}
             </a>
           </li>

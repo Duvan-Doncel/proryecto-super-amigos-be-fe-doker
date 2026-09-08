@@ -45,7 +45,7 @@ export function VerifyEmailPage() {
               role="status"
               className="mx-auto w-10 h-10 border-4 border-brand-600 border-t-transparent rounded-full animate-spin"
             />
-            <p className="text-sm text-gray-600 dark:text-slate-400">Verificando tu cuenta...</p>
+            <p className="text-sm text-text-muted">Verificando tu cuenta...</p>
           </div>
         )}
 

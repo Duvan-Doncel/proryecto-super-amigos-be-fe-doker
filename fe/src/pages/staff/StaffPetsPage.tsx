@@ -9,16 +9,21 @@
  */
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import * as staffApi from '@/api/staff';
 import * as petsApi from '@/api/pets';
 import type { ClientSummary } from '@/types/staff';
 import type { CoatType, Pet, PetBehavior, PetSize, PetSpecies, SkinConditionType } from '@/types/pets';
 import { SIZE_LABELS, COAT_LABELS, BEHAVIOR_LABELS, SKIN_CONDITION_LABELS } from '@/types/pricing';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { SelectField } from '@/components/ui/SelectField';
+import { BreedCombobox } from '@/components/ui/BreedCombobox';
 import { Alert } from '@/components/ui/Alert';
+import { DOG_BREEDS } from '@/data/dogBreeds';
+import { CAT_BREEDS } from '@/data/catBreeds';
 
 const SPECIES_OPTIONS: { value: PetSpecies; label: string }[] = [
   { value: 'canina', label: 'Canina' },
@@ -99,6 +104,8 @@ export function StaffPetsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const petsPage = usePagination(pets, 8);
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim().length < 2) {
@@ -145,6 +152,10 @@ export function StaffPetsPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleBreedChange = (breed: string) => {
+    setFormData((prev) => ({ ...prev, breed }));
   };
 
   const toggleCondition = (type: SkinConditionType) => {
@@ -200,14 +211,11 @@ export function StaffPetsPage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-10">
-      <Link to="/staff" className="text-sm text-gray-500 dark:text-slate-400 hover:underline">
-        ← Volver
-      </Link>
-
-      <h1 className="text-2xl font-comic tracking-wide text-gray-900 dark:text-slate-100 mt-4 mb-6">
-        🐾 Registrar Mascota
-      </h1>
+    <div className={`${selectedClient ? 'max-w-6xl' : 'max-w-2xl'} mx-auto transition-all duration-200`}>
+      <PageHeader
+        title="Registrar mascota"
+        description="Registra y actualiza mascotas a nombre de un cliente. Requisito para que pueda agendar citas y reportar síntomas."
+      />
 
       {!selectedClient ? (
         <>
@@ -220,6 +228,7 @@ export function StaffPetsPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Ej: Juan Pérez, juan@correo.com"
+                maxLength={100}
               />
             </div>
             <div className="pt-7">
@@ -235,12 +244,12 @@ export function StaffPetsPage() {
                 <li key={c.id}>
                   <button
                     onClick={() => selectClient(c)}
-                    className="w-full text-left rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm hover:border-brand-400 dark:hover:border-brand-500 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors duration-200"
+                    className="w-full text-left rounded-lg border border-border px-4 py-3 text-sm hover:border-brand-400 dark:hover:border-brand-500 hover:bg-surface-2 transition-colors duration-200"
                   >
-                    <span className="font-medium text-gray-900 dark:text-slate-100">
+                    <span className="font-medium text-text">
                       {c.firstName} {c.lastName}
                     </span>
-                    <span className="text-gray-500 dark:text-slate-400"> — {c.email}</span>
+                    <span className="text-text-muted"> — {c.email}</span>
                   </button>
                 </li>
               ))}
@@ -249,13 +258,13 @@ export function StaffPetsPage() {
         </>
       ) : (
         <>
-          <div className="mb-6 flex items-center justify-between rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm">
+          <div className="mb-6 flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm">
             <span>
-              Cliente: <strong className="text-gray-900 dark:text-slate-100">{selectedClient.firstName} {selectedClient.lastName}</strong> — {selectedClient.email}
+              Cliente: <strong className="text-text">{selectedClient.firstName} {selectedClient.lastName}</strong> — {selectedClient.email}
             </span>
             <button
               onClick={() => setSelectedClient(null)}
-              className="text-brand-600 dark:text-brand-400 hover:underline"
+              className="text-[color:var(--color-primary)] hover:underline"
             >
               Cambiar
             </button>
@@ -267,7 +276,8 @@ export function StaffPetsPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} noValidate className="space-y-4 mb-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {error && <Alert type="error" message={error} />}
 
             {editingId && (
@@ -279,163 +289,190 @@ export function StaffPetsPage() {
               </p>
             )}
 
-            <InputField
-              id="name"
-              name="name"
-              label="Nombre de la mascota"
-              required
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="Ej: Max"
-            />
-            <SelectField
-              id="species"
-              name="species"
-              label="Especie"
-              required
-              value={formData.species}
-              onChange={handleChange}
-            >
-              <option value="" disabled>Selecciona una especie</option>
-              {SPECIES_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </SelectField>
-            <InputField
-              id="breed"
-              name="breed"
-              label="Raza (opcional)"
-              value={formData.breed}
-              onChange={handleChange}
-            />
-            <InputField
-              id="gender"
-              name="gender"
-              label="Sexo (opcional)"
-              value={formData.gender}
-              onChange={handleChange}
-              placeholder="Ej: Macho, Hembra"
-            />
-            <InputField
-              id="age"
-              name="age"
-              label="Edad en años (opcional)"
-              type="number"
-              min={0}
-              value={formData.age}
-              onChange={handleChange}
-            />
-            <InputField
-              id="weight"
-              name="weight"
-              label="Peso en kg (opcional)"
-              type="number"
-              min={0}
-              step="0.1"
-              value={formData.weight}
-              onChange={handleChange}
-              placeholder="Ej: 8.5"
-            />
-            <InputField
-              id="color"
-              name="color"
-              label="Color (opcional)"
-              value={formData.color}
-              onChange={handleChange}
-              placeholder="Ej: Café con blanco"
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InputField
+                id="name"
+                name="name"
+                label="Nombre de la mascota"
+                required
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Ej: Max"
+                maxLength={100}
+              />
+              <SelectField
+                id="species"
+                name="species"
+                label="Especie"
+                required
+                value={formData.species}
+                onChange={handleChange}
+              >
+                <option value="" disabled>Selecciona una especie</option>
+                {SPECIES_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </SelectField>
+            </div>
+            {formData.species === 'canina' || formData.species === 'felina' ? (
+              <BreedCombobox
+                id="breed"
+                name="breed"
+                label="Raza (opcional)"
+                value={formData.breed}
+                onChange={handleBreedChange}
+                options={formData.species === 'canina' ? DOG_BREEDS : CAT_BREEDS}
+              />
+            ) : (
+              <InputField
+                id="breed"
+                name="breed"
+                label="Raza (opcional)"
+                value={formData.breed}
+                onChange={handleChange}
+                disabled
+                placeholder="Selecciona primero la especie"
+              />
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <SelectField
+                id="gender"
+                name="gender"
+                label="Sexo (opcional)"
+                value={formData.gender}
+                onChange={handleChange}
+              >
+                <option value="">Sin especificar</option>
+                <option value="Macho">Macho</option>
+                <option value="Hembra">Hembra</option>
+              </SelectField>
+              <InputField
+                id="age"
+                name="age"
+                label="Edad en años (opcional)"
+                type="number"
+                min={0}
+                value={formData.age}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InputField
+                id="weight"
+                name="weight"
+                label="Peso en kg (opcional)"
+                type="number"
+                min={0}
+                step="0.1"
+                value={formData.weight}
+                onChange={handleChange}
+                placeholder="Ej: 8.5"
+              />
+              <InputField
+                id="color"
+                name="color"
+                label="Color (opcional)"
+                value={formData.color}
+                onChange={handleChange}
+                placeholder="Ej: Café con blanco"
+                maxLength={50}
+              />
+            </div>
 
             {/* ─── Factores de precio del grooming (RF-014) ─── */}
-            <div className="rounded-lg border border-gray-200 dark:border-slate-700 p-4 space-y-4">
-              <p className="text-sm font-medium text-gray-700 dark:text-slate-300">
+            <div className="rounded-lg border border-border p-4 space-y-4">
+              <p className="text-sm font-medium text-text">
                 Datos para el precio del grooming
               </p>
 
-              <SelectField
-                id="size"
-                name="size"
-                label="Tamaño"
-                value={formData.size}
-                onChange={handleChange}
-              >
-                <option value="">Sugerir desde el peso</option>
-                {SIZE_OPTIONS.map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </SelectField>
-              <p className="-mt-2 text-xs text-gray-500 dark:text-slate-400">
-                Si lo dejas en “Sugerir desde el peso”, el sistema clasifica la talla según los
-                kilos registrados.
-              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <SelectField
+                  id="size"
+                  name="size"
+                  label="Tamaño"
+                  value={formData.size}
+                  onChange={handleChange}
+                >
+                  <option value="">Sugerir desde el peso</option>
+                  {SIZE_OPTIONS.map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </SelectField>
 
-              <SelectField
-                id="coatType"
-                name="coatType"
-                label="Tipo de pelo"
-                value={formData.coatType}
-                onChange={handleChange}
-              >
-                <option value="">Sin especificar</option>
-                {COAT_OPTIONS.map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </SelectField>
+                <SelectField
+                  id="coatType"
+                  name="coatType"
+                  label="Tipo de pelo"
+                  value={formData.coatType}
+                  onChange={handleChange}
+                >
+                  <option value="">Sin especificar</option>
+                  {COAT_OPTIONS.map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </SelectField>
 
-              <SelectField
-                id="behavior"
-                name="behavior"
-                label="Comportamiento"
-                value={formData.behavior}
-                onChange={handleChange}
-              >
-                <option value="">Sin especificar</option>
-                {BEHAVIOR_OPTIONS.map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </SelectField>
-              <p className="-mt-2 text-xs text-gray-500 dark:text-slate-400">
-                “Agresivo” impide que el cliente agende en la app — primero se evalúa a la
-                mascota en persona.
+                <SelectField
+                  id="behavior"
+                  name="behavior"
+                  label="Comportamiento"
+                  value={formData.behavior}
+                  onChange={handleChange}
+                >
+                  <option value="">Sin especificar</option>
+                  {BEHAVIOR_OPTIONS.map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </SelectField>
+              </div>
+              <p className="text-xs text-text-muted">
+                Tamaño: si lo dejas en “Sugerir desde el peso”, el sistema clasifica la talla
+                según los kilos registrados. Comportamiento: “Agresivo” impide que el cliente
+                agende en la app — primero se evalúa a la mascota en persona.
               </p>
 
               <fieldset>
-                <legend className="text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
+                <legend className="text-sm font-medium text-text mb-2">
                   Condiciones de piel
                 </legend>
-                <div className="space-y-1.5">
-                  {SURCHARGE_CONDITIONS.map((type) => (
-                    <label key={type} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={formData.skinConditions.includes(type)}
-                        onChange={() => toggleCondition(type)}
-                        className="rounded border-gray-300 dark:border-slate-600 text-brand-600 focus:ring-brand-500"
-                      />
-                      {SKIN_CONDITION_LABELS[type]}
-                    </label>
-                  ))}
-                </div>
-                <p className="mt-2 mb-1 text-xs font-medium text-red-700 dark:text-red-400">
-                  Requieren revisión antes de un baño (el cliente no podrá agendar):
-                </p>
-                <div className="space-y-1.5">
-                  {BLOCKING_CONDITIONS.map((type) => (
-                    <label key={type} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={formData.skinConditions.includes(type)}
-                        onChange={() => toggleCondition(type)}
-                        className="rounded border-gray-300 dark:border-slate-600 text-red-600 focus:ring-red-500"
-                      />
-                      {SKIN_CONDITION_LABELS[type]}
-                    </label>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    {SURCHARGE_CONDITIONS.map((type) => (
+                      <label key={type} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={formData.skinConditions.includes(type)}
+                          onChange={() => toggleCondition(type)}
+                          className="rounded border-border text-brand-600 focus:ring-brand-500"
+                        />
+                        {SKIN_CONDITION_LABELS[type]}
+                      </label>
+                    ))}
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-xs font-medium text-red-700 dark:text-red-400">
+                      Requieren revisión antes de un baño (el cliente no podrá agendar):
+                    </p>
+                    <div className="space-y-1.5">
+                      {BLOCKING_CONDITIONS.map((type) => (
+                        <label key={type} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={formData.skinConditions.includes(type)}
+                            onChange={() => toggleCondition(type)}
+                            className="rounded border-border text-red-600 focus:ring-red-500"
+                          />
+                          {SKIN_CONDITION_LABELS[type]}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </fieldset>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="pathology" className="text-sm font-medium text-gray-700 dark:text-slate-300">
+              <label htmlFor="pathology" className="text-sm font-medium text-text">
                 Notas de patología
               </label>
               <textarea
@@ -444,9 +481,10 @@ export function StaffPetsPage() {
                 value={formData.pathology}
                 onChange={handleChange}
                 rows={2}
-                className="w-full px-3 py-2 text-sm rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 border border-gray-300 dark:border-slate-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-0"
+                maxLength={300}
+                className="w-full px-3 py-2 text-sm rounded-lg bg-surface text-text border border-border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-0"
               />
-              <p className="text-xs text-gray-500 dark:text-slate-400">
+              <p className="text-xs text-text-muted">
                 Texto libre para el historial. Si no tiene ninguna, deja escrito “No aplica”.
               </p>
             </div>
@@ -458,20 +496,22 @@ export function StaffPetsPage() {
             </div>
           </form>
 
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">
-            Mascotas de este cliente
-          </h2>
-          {pets.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-slate-400">Todavía no tiene mascotas registradas.</p>
-          ) : (
-            <ul className="space-y-2">
-              {pets.map((p) => (
-                <li key={p.id} className="rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm">
+          <div>
+            <h2 className="text-lg font-semibold text-text mb-3">
+              Mascotas de este cliente
+            </h2>
+            {pets.length === 0 ? (
+              <p className="text-sm text-text-muted">Todavía no tiene mascotas registradas.</p>
+            ) : (
+              <>
+              <ul className="space-y-2">
+              {petsPage.pageItems.map((p) => (
+                <li key={p.id} className="rounded-lg border border-border px-4 py-3 text-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p>
-                        <span className="font-medium text-gray-900 dark:text-slate-100">{p.name}</span>
-                        <span className="text-gray-500 dark:text-slate-400">
+                        <span className="font-medium text-text">{p.name}</span>
+                        <span className="text-text-muted">
                           {' '}— {SPECIES_OPTIONS.find((opt) => opt.value === p.species)?.label ?? p.species}
                           {p.breed ? `, ${p.breed}` : ''}
                           {p.weight != null ? `, ${p.weight} kg` : ''}
@@ -481,7 +521,7 @@ export function StaffPetsPage() {
                         </span>
                       </p>
                       {p.skinConditions.length > 0 && (
-                        <p className="mt-1 text-gray-500 dark:text-slate-400">
+                        <p className="mt-1 text-text-muted">
                           Piel: {p.skinConditions.map((c) => SKIN_CONDITION_LABELS[c.type]).join(', ')}
                         </p>
                       )}
@@ -489,15 +529,27 @@ export function StaffPetsPage() {
                     <button
                       type="button"
                       onClick={() => startEdit(p)}
-                      className="shrink-0 text-brand-600 dark:text-brand-400 hover:underline"
+                      className="shrink-0 text-[color:var(--color-primary)] hover:underline"
                     >
                       Editar
                     </button>
                   </div>
                 </li>
               ))}
-            </ul>
-          )}
+              </ul>
+              <Pagination
+                page={petsPage.page}
+                pageCount={petsPage.pageCount}
+                total={petsPage.total}
+                pageSize={petsPage.pageSize}
+                onPageChange={petsPage.setPage}
+                onPageSizeChange={petsPage.setPageSize}
+                itemNoun="mascotas"
+              />
+              </>
+            )}
+          </div>
+          </div>
         </>
       )}
     </div>

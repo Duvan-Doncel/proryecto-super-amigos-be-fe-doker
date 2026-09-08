@@ -21,7 +21,7 @@ function signed(amount: number): string {
 function SizeTierTable({ title, tiers }: { title: string; tiers: SizeTier[] }) {
   return (
     <div>
-      <p className="text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">{title}</p>
+      <p className="text-sm font-medium text-text mb-1">{title}</p>
       <table className="w-full text-sm">
         <tbody>
           {tiers.map((t, i) => {
@@ -33,9 +33,9 @@ function SizeTierTable({ title, tiers }: { title: string; tiers: SizeTier[] }) {
                   ? `hasta ${t.maxWeight} kg`
                   : `${prev} – ${t.maxWeight} kg`;
             return (
-              <tr key={t.size} className="border-t border-gray-200 dark:border-slate-700">
+              <tr key={t.size} className="border-t border-border">
                 <td className="py-1.5">{SIZE_LABELS[t.size]}</td>
-                <td className="py-1.5 text-right text-gray-600 dark:text-slate-400">{range}</td>
+                <td className="py-1.5 text-right text-text-muted">{range}</td>
               </tr>
             );
           })}
@@ -58,14 +58,14 @@ export function PricingInfoPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
-      <Link to="/" className="text-sm text-gray-500 dark:text-slate-400 hover:underline">
+      <Link to="/" className="text-sm text-text-muted hover:underline">
         ← Volver
       </Link>
 
-      <h1 className="text-2xl font-comic tracking-wide text-gray-900 dark:text-slate-100 mt-4 mb-2">
+      <h1 className="text-2xl font-display tracking-wide text-text mt-4 mb-2">
         ✂️ Cómo calculamos el precio
       </h1>
-      <p className="text-sm text-gray-600 dark:text-slate-400 mb-8">
+      <p className="text-sm text-text-muted mb-8">
         El precio de un servicio de grooming parte de un <strong>precio base</strong> y se le suman
         recargos según tu mascota: su tamaño, el largo de su pelo y algunas condiciones de piel.
       </p>
@@ -76,28 +76,28 @@ export function PricingInfoPage() {
         <div className="space-y-10">
           {/* ─── Servicios y su precio base ─── */}
           <section>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">
+            <h2 className="text-lg font-semibold text-text mb-3">
               Servicios
             </h2>
             <ul className="space-y-2">
               {data.services.map((s) => (
                 <li
                   key={s.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm"
+                  className="flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm"
                 >
-                  <span className="font-medium text-gray-900 dark:text-slate-100">{s.name}</span>
+                  <span className="font-medium text-text">{s.name}</span>
                   <span className="tabular-nums">desde {formatCOP(s.basePrice)}</span>
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-xs text-gray-500 dark:text-slate-400">
+            <p className="mt-2 text-xs text-text-muted">
               El precio base corresponde a una mascota pequeña, de pelo corto y sin condiciones de piel.
             </p>
           </section>
 
           {/* ─── Recargo por tamaño (tramos propios por especie) ─── */}
           <section>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">
+            <h2 className="text-lg font-semibold text-text mb-3">
               Según el tamaño
             </h2>
             <div className="grid gap-6 sm:grid-cols-2">
@@ -109,7 +109,7 @@ export function PricingInfoPage() {
                 />
               ))}
             </div>
-            <p className="mt-2 text-xs text-gray-500 dark:text-slate-400">
+            <p className="mt-2 text-xs text-text-muted">
               El recargo exacto por tramo depende de cada servicio — lo ves en el estimador al
               agendar.
             </p>
@@ -117,10 +117,10 @@ export function PricingInfoPage() {
 
           {/* ─── Recargo por pelo ─── */}
           <section>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">
+            <h2 className="text-lg font-semibold text-text mb-3">
               Según el tipo de pelo
             </h2>
-            <p className="text-sm text-gray-600 dark:text-slate-400">
+            <p className="text-sm text-text-muted">
               El <strong>pelo largo</strong> ({COAT_LABELS.largo.toLowerCase()}) necesita más tiempo
               de desenredado y secado, así que suele tener un recargo. El{' '}
               {COAT_LABELS.corto.toLowerCase()} va incluido en el precio base.
@@ -129,14 +129,14 @@ export function PricingInfoPage() {
 
           {/* ─── Recargo por condición de piel ─── */}
           <section>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">
+            <h2 className="text-lg font-semibold text-text mb-3">
               Según condiciones de piel
             </h2>
             <ul className="space-y-2">
               {data.skinSurcharges.map((r) => (
                 <li
                   key={r.type}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm"
+                  className="flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm"
                 >
                   <span>{r.label}</span>
                   <span className="tabular-nums text-amber-700 dark:text-amber-500">
@@ -166,17 +166,17 @@ export function PricingInfoPage() {
           {/* ─── Recargo por comportamiento ─── */}
           {data.behaviorSurcharges.length > 0 && (
             <section>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">
+              <h2 className="text-lg font-semibold text-text mb-3">
                 Según el comportamiento
               </h2>
-              <p className="text-sm text-gray-600 dark:text-slate-400 mb-3">
+              <p className="text-sm text-text-muted mb-3">
                 Una mascota nerviosa o difícil de manejar lleva más tiempo y a veces dos personas.
               </p>
               <ul className="space-y-2">
                 {data.behaviorSurcharges.map((r) => (
                   <li
                     key={r.behavior}
-                    className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm"
+                    className="flex items-center justify-between rounded-lg border border-border px-4 py-3 text-sm"
                   >
                     <span>{r.label}</span>
                     <span className="tabular-nums text-amber-700 dark:text-amber-500">

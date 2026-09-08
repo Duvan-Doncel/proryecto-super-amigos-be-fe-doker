@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { UserRound, PawPrint } from 'lucide-react';
 import * as petsApi from '@/api/pets';
 import type { Pet } from '@/types/pets';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,18 +30,34 @@ export function ClientHomePage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
-      <h1 className="text-2xl font-comic tracking-wide text-gray-900 dark:text-slate-100 mb-1 text-center">
-        🚦 ¡Hola, {user?.firstName}!
-      </h1>
-      <p className="text-sm text-gray-500 dark:text-slate-400 text-center mb-8">
-        ¿Cómo podemos ayudarte hoy? Selecciona según el estado de tu mascota.
-      </p>
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-extrabold text-text">
+            Hola, {user?.firstName} 👋
+          </h1>
+          <p className="mt-1 text-sm text-text-muted">
+            ¿Cómo podemos ayudarte hoy? Elige según el estado de tu mascota.
+          </p>
+        </div>
+        <Link
+          to="/app/perfil"
+          className="focus-ring inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text hover:bg-surface-2"
+        >
+          <UserRound className="h-4 w-4" aria-hidden="true" />
+          Mi perfil
+          {pets && (
+            <span className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-surface-2 px-1.5 text-xs text-text-muted">
+              <PawPrint className="h-3 w-3" aria-hidden="true" />
+              {pets.length}
+            </span>
+          )}
+        </Link>
+      </div>
 
       {!isLoadingPets && !hasPets && (
-        <div className="mb-6 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
-          Todavía no tienes mascotas registradas. Acércate o comunícate con GroomingSpa
-          para que registremos a tu mascota — después de eso podrás agendar citas y
-          reportar síntomas.
+        <div className="mb-6 rounded-lg border border-[color:var(--color-warning)]/30 bg-[color:var(--color-warning-soft)] px-4 py-3 text-sm text-text">
+          Todavía no tienes mascotas registradas. Acércate o comunícate con nosotros para
+          registrar a tu mascota — después podrás agendar citas y reportar síntomas.
         </div>
       )}
 
@@ -67,7 +84,7 @@ export function ClientHomePage() {
         />
       </div>
 
-      <div className="grid gap-4 mt-8 pt-8 border-t border-gray-200 dark:border-slate-700">
+      <div className="grid gap-4 mt-8 pt-8 border-t border-border">
         <SemaforoOption
           to="/app/tienda"
           emoji="🛍️"
@@ -93,14 +110,14 @@ function SemaforoOption({ to, emoji, title, description, disabled }: SemaforoOpt
       className={[
         'flex items-center gap-4 rounded-xl p-4 transition-all duration-200',
         disabled
-          ? 'border border-gray-200 dark:border-slate-700 opacity-50 cursor-not-allowed'
-          : 'comic-border comic-shadow hover:-translate-y-0.5 hover:bg-gray-50 dark:hover:bg-slate-800/50',
+          ? 'border border-border opacity-50 cursor-not-allowed'
+          : 'card hover:-translate-y-0.5 hover:bg-surface-2',
       ].join(' ')}
     >
       <span className="text-3xl" aria-hidden="true">{emoji}</span>
       <div className="text-left">
-        <p className="font-medium text-gray-900 dark:text-slate-100">{title}</p>
-        <p className="text-sm text-gray-500 dark:text-slate-400">{description}</p>
+        <p className="font-medium text-text">{title}</p>
+        <p className="text-sm text-text-muted">{description}</p>
       </div>
     </div>
   );

@@ -28,12 +28,12 @@ export function AuthModal() {
       {mode === 'register' ? (
         <>
           <RegisterForm onNavigate={close} onGoToLogin={() => open('login')} />
-          <p className="mt-4 text-center text-sm text-gray-500 dark:text-slate-400">
+          <p className="mt-4 text-center text-sm text-text-muted">
             ¿Ya tienes cuenta?{' '}
             <button
               type="button"
               onClick={() => open('login')}
-              className="text-brand-600 dark:text-brand-400 hover:underline"
+              className="text-[color:var(--color-primary)] hover:underline"
             >
               Inicia sesión
             </button>
@@ -48,12 +48,12 @@ export function AuthModal() {
             }}
             onNavigate={close}
           />
-          <p className="mt-4 text-center text-sm text-gray-500 dark:text-slate-400">
+          <p className="mt-4 text-center text-sm text-text-muted">
             ¿No tienes cuenta?{' '}
             <button
               type="button"
               onClick={() => open('register')}
-              className="text-brand-600 dark:text-brand-400 hover:underline"
+              className="text-[color:var(--color-primary)] hover:underline"
             >
               Regístrate
             </button>

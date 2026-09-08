@@ -71,6 +71,7 @@ export function LoginForm({ onSuccess, onNavigate }: LoginFormProps) {
         value={formData.email}
         onChange={handleChange}
         placeholder="tucorreo@ejemplo.com"
+        maxLength={255}
       />
 
       <InputField
@@ -83,13 +84,14 @@ export function LoginForm({ onSuccess, onNavigate }: LoginFormProps) {
         value={formData.password}
         onChange={handleChange}
         placeholder="••••••••"
+        maxLength={72}
       />
 
       <div className="flex justify-end">
         <Link
           to="/forgot-password"
           onClick={onNavigate}
-          className="text-xs text-gray-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+          className="text-xs text-text-muted hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
         >
           ¿Olvidaste tu contraseña?
         </Link>
@@ -103,12 +105,12 @@ export function LoginForm({ onSuccess, onNavigate }: LoginFormProps) {
 
       {/* ¿Qué? Aviso legal visible — deja constancia de que al usar el servicio se
           aceptan los documentos, con enlace directo a cada uno. */}
-      <p className="text-xs text-gray-500 dark:text-slate-400 text-center pt-1">
+      <p className="text-xs text-text-muted text-center pt-1">
         Al iniciar sesión aceptas nuestros{' '}
         <Link
           to="/terminos"
           onClick={onNavigate}
-          className="text-brand-600 dark:text-brand-400 hover:underline"
+          className="text-[color:var(--color-primary)] hover:underline"
         >
           Términos y Condiciones
         </Link>{' '}
@@ -116,7 +118,7 @@ export function LoginForm({ onSuccess, onNavigate }: LoginFormProps) {
         <Link
           to="/privacidad"
           onClick={onNavigate}
-          className="text-brand-600 dark:text-brand-400 hover:underline"
+          className="text-[color:var(--color-primary)] hover:underline"
         >
           Política de Privacidad
         </Link>
