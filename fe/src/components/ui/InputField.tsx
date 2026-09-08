@@ -33,10 +33,7 @@ export function InputField({ label, id, error, className = '', type = 'text', ..
   return (
     <div className="flex flex-col gap-1.5">
       {/* ¿Qué? Label vinculado al input por htmlFor — obligatorio WCAG AA. */}
-      <label
-        htmlFor={id}
-        className="text-sm font-medium text-gray-700 dark:text-slate-300"
-      >
+      <label htmlFor={id} className="text-sm font-medium text-text">
         {label}
       </label>
 
@@ -53,14 +50,13 @@ export function InputField({ label, id, error, className = '', type = 'text', ..
             'w-full px-3 py-2 text-sm rounded-lg',
             // ¿Qué? Espacio a la derecha para que el texto no quede debajo del ojo.
             isPassword ? 'pr-10' : '',
-            'bg-white dark:bg-slate-800',
-            'text-gray-900 dark:text-slate-100',
-            'placeholder:text-gray-400 dark:placeholder:text-slate-500',
+            'bg-surface text-text',
+            'placeholder:text-text-muted/70',
             'transition-colors duration-200',
-            'focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-0',
+            'focus:outline-none focus:ring-2 focus:ring-[color:var(--color-ring)] focus:ring-offset-0',
             error
-              ? 'border border-red-500 dark:border-red-400'
-              : 'border border-gray-300 dark:border-slate-600',
+              ? 'border border-[color:var(--color-danger)]'
+              : 'border border-border',
             className,
           ]
             .filter(Boolean)
@@ -82,9 +78,8 @@ export function InputField({ label, id, error, className = '', type = 'text', ..
             className={[
               'absolute right-2 top-1/2 -translate-y-1/2',
               'p-1 rounded',
-              'text-gray-400 dark:text-slate-500',
-              'hover:text-gray-600 dark:hover:text-slate-300',
-              'focus:outline-none focus:ring-2 focus:ring-brand-500',
+              'text-text-muted hover:text-text',
+              'focus:outline-none focus:ring-2 focus:ring-[color:var(--color-ring)]',
               'transition-colors duration-200',
             ].join(' ')}
           >
@@ -99,11 +94,7 @@ export function InputField({ label, id, error, className = '', type = 'text', ..
 
       {/* ¿Qué? Mensaje de error accesible con role="alert" para lectores de pantalla. */}
       {error && (
-        <p
-          id={errorId}
-          role="alert"
-          className="text-xs text-red-600 dark:text-red-400"
-        >
+        <p id={errorId} role="alert" className="text-xs text-[color:var(--color-danger)]">
           {error}
         </p>
       )}

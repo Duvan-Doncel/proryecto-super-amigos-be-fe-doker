@@ -16,17 +16,17 @@ interface AlertProps {
   message: ReactNode;
 }
 
-// ¿Qué? Mapa de clases Tailwind por tipo de alerta.
+// ¿Qué? Mapa de clases Tailwind por tipo de alerta, sobre tokens de estado.
 const TYPE_CLASSES: Record<AlertProps['type'], string> = {
   error:
-    'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 ' +
-    'text-red-700 dark:text-red-400',
+    'bg-[color:var(--color-danger-soft)] border border-[color:var(--color-danger)]/30 ' +
+    'text-[color:var(--color-danger)]',
   success:
-    'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 ' +
-    'text-green-700 dark:text-green-400',
+    'bg-[color:var(--color-success-soft)] border border-[color:var(--color-success)]/30 ' +
+    'text-[color:var(--color-success)]',
   info:
-    'bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 ' +
-    'text-brand-700 dark:text-brand-400',
+    'bg-[color:var(--color-info-soft)] border border-[color:var(--color-info)]/30 ' +
+    'text-[color:var(--color-info)]',
 };
 
 export function Alert({ type, message }: AlertProps) {

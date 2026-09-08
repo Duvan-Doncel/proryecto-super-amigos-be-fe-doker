@@ -1,138 +1,216 @@
 /*
  * Archivo: index.css
- * Descripción: Estilos globales del frontend NN Auth System.
- * ¿Para qué? Importar TailwindCSS e inicializar el design system base del proyecto.
- * ¿Impacto? Sin @import "tailwindcss" ninguna clase de Tailwind funciona.
- *   Sin @variant dark no funciona el dark mode basado en clase .dark en <html>.
+ * Descripción: Estilos globales + design system de Super Amigos Grooming Spa.
+ * ¿Para qué? Define la paleta de marca (spa cálido y confiable), los tokens semánticos
+ *   claro/oscuro y las utilidades base (.card, foco) que usan TODOS los componentes.
+ * ¿Impacto? Cambiar un token aquí re-tematiza la app entera. Los componentes usan
+ *   `bg-surface text-text border-border` en vez de repetir `bg-white dark:bg-slate-900 ...`.
+ *
+ * Convención Tailwind v4:
+ *   - Las variables "crudas" viven en :root / .dark con prefijo `--c-` (color) y `--sh-`
+ *     (sombra). Cambian según el tema.
+ *   - `@theme inline` mapea cada token de Tailwind (`--color-surface`, etc.) a su variable
+ *     cruda, así las utilidades (`bg-surface`) resuelven el valor en runtime y reaccionan
+ *     al cambio de `.dark`.
  */
 
-/* ¿Qué? Importar TailwindCSS v4 completo. */
 @import "tailwindcss";
 
-/*
- * ¿Qué? Configurar dark mode basado en clase en lugar del media query.
- * ¿Para qué? Permite que el usuario cambie el tema con un toggle independientemente
- *   de su preferencia del sistema operativo.
- * ¿Impacto? El ThemeToggle añade/quita la clase .dark en <html>.
- *   Si usamos solo prefers-color-scheme el usuario no puede controlar el tema.
- */
+/* ¿Qué? Dark mode por clase `.dark` en <html> (lo pone ThemeProvider / el guard de index.html). */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/*
- * ¿Qué? Color de marca del proyecto — sistema de identidad visual por stack.
- * ¿Para qué? Cada proyecto del sistema educativo tiene un color de acento distinto
- *   para que el alumno identifique visualmente en qué stack está trabajando.
- *   Cambiar SOLO estas líneas adapta toda la paleta de la aplicación al nuevo stack.
- * ¿Impacto? Todos los componentes usan `brand-*` en lugar de un color hardcodeado.
- *   Para cambiar el stack: reemplazar los valores de `var(--color-blue-*)` por
- *   el color del nuevo stack. Colores asignados:
- *     blue    → Express.js  (este proyecto)
- *     emerald → FastAPI
- *     violet  → Next.js fullstack
- *     amber   → Spring Boot Java
- *     fuchsia → Spring Boot Kotlin
- *     cyan    → Go REST API
- */
-@theme {
-  --color-brand-400: var(--color-blue-400);
-  --color-brand-500: var(--color-blue-500);
-  --color-brand-600: var(--color-blue-600);
-  --color-brand-800: var(--color-blue-800);
+/* ───────────── TOKENS CRUDOS — TEMA CLARO (por defecto) ───────────── */
+:root {
+  --c-bg: #f7f4f0;          /* lienzo de la app — blanco cálido */
+  --c-surface: #ffffff;     /* tarjetas, barras, modales */
+  --c-surface-2: #f3efe9;   /* zonas hundidas: filas alternas, inputs sutiles */
+  --c-border: #e6e0d7;      /* bordes y divisores (stone cálido) */
 
-  /* ¿Qué? Acento amarillo/dorado del "toque cómic" — junto al azul de marca, evoca la
-   *   dupla clásica de un dúo de superhéroes sin salirse de la paleta ya establecida.
-   * ¿Para qué? Se usa en el offset de comic-shadow y en pequeños detalles de acento
-   *   (nunca como color de texto principal, para no sacrificar contraste/legibilidad). */
-  --color-comic-accent: var(--color-amber-400);
-  --color-comic-accent-dark: var(--color-amber-500);
+  --c-text: #1c1917;        /* texto principal */
+  --c-text-muted: #6f675f;  /* texto secundario — cumple AA sobre surface */
+
+  --c-primary: #0f766e;         /* texto/íconos interactivos sobre claro (AA ~5:1) */
+  --c-primary-strong: #115e59;  /* hover de enlaces */
+
+  --c-btn: #0f766e;             /* fondo del botón primario */
+  --c-btn-hover: #115e59;
+  --c-btn-fg: #ffffff;          /* texto del botón primario (AA ~5:1 sobre --c-btn) */
+
+  --c-btn-danger: #dc2626;      /* botón de acción destructiva (AA ~4.8:1 con blanco) */
+  --c-btn-danger-hover: #b91c1c;
+
+  --c-accent: #ea580c;          /* acento cálido; nunca como color de texto de cuerpo */
+  --c-accent-soft: #fff2e8;
+
+  --c-success: #15803d;
+  --c-success-soft: #eaf6ec;
+  --c-warning: #b45309;
+  --c-warning-soft: #fdf1e3;
+  --c-danger: #b91c1c;
+  --c-danger-soft: #fdecec;
+  --c-info: #0f766e;
+  --c-info-soft: #e9f6f4;
+
+  --c-ring: #14b8a6;
+
+  --sh-card: 0 1px 2px rgb(28 25 23 / 0.04), 0 4px 16px -4px rgb(28 25 23 / 0.10);
+  --sh-pop: 0 12px 40px -8px rgb(28 25 23 / 0.22);
 }
 
-/*
- * ¿Qué? Antialiasing global para mejor renderizado de tipografía.
- * ¿Para qué? Fuentes sans-serif se ven más nítidas en pantallas de alta densidad.
- */
+/* ───────────── TOKENS CRUDOS — TEMA OSCURO ───────────── */
+.dark {
+  --c-bg: #1a1715;
+  --c-surface: #24201e;
+  --c-surface-2: #2e2926;
+  --c-border: #423b35;
+
+  --c-text: #f4f1ee;
+  --c-text-muted: #a8a09a;
+
+  --c-primary: #2dd4bf;         /* teal claro — AA alto sobre fondo oscuro */
+  --c-primary-strong: #5eead4;
+
+  --c-btn: #0f766e;             /* mismo botón; texto blanco mantiene AA */
+  --c-btn-hover: #0d9488;
+  --c-btn-fg: #ffffff;
+
+  --c-btn-danger: #dc2626;
+  --c-btn-danger-hover: #ef4444;
+
+  --c-accent: #fb923c;
+  --c-accent-soft: #3a2415;
+
+  --c-success: #4ade80;
+  --c-success-soft: #14271a;
+  --c-warning: #fbbf24;
+  --c-warning-soft: #2e2410;
+  --c-danger: #f87171;
+  --c-danger-soft: #2f1717;
+  --c-info: #2dd4bf;
+  --c-info-soft: #10302d;
+
+  --c-ring: #2dd4bf;
+
+  --sh-card: 0 1px 2px rgb(0 0 0 / 0.30), 0 4px 16px -4px rgb(0 0 0 / 0.45);
+  --sh-pop: 0 12px 40px -8px rgb(0 0 0 / 0.60);
+}
+
+/* ───────────── EXPONER TOKENS A TAILWIND ─────────────
+ * Sin `inline`: Tailwind emite `--color-*: var(--c-*)` en :root, así que:
+ *   1. las utilidades (`bg-surface`) resuelven el valor y reaccionan a `.dark`, y
+ *   2. `var(--color-primary)` queda disponible en runtime para clases de valor
+ *      arbitrario como `text-[color:var(--color-primary)]`. */
+@theme {
+  --font-display: "Nunito", "Segoe UI", system-ui, sans-serif;
+
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-border: var(--c-border);
+  --color-text: var(--c-text);
+  --color-text-muted: var(--c-text-muted);
+  --color-primary: var(--c-primary);
+  --color-primary-strong: var(--c-primary-strong);
+  --color-btn: var(--c-btn);
+  --color-btn-hover: var(--c-btn-hover);
+  --color-btn-fg: var(--c-btn-fg);
+  --color-btn-danger: var(--c-btn-danger);
+  --color-btn-danger-hover: var(--c-btn-danger-hover);
+  --color-accent: var(--c-accent);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-success: var(--c-success);
+  --color-success-soft: var(--c-success-soft);
+  --color-warning: var(--c-warning);
+  --color-warning-soft: var(--c-warning-soft);
+  --color-danger: var(--c-danger);
+  --color-danger-soft: var(--c-danger-soft);
+  --color-info: var(--c-info);
+  --color-info-soft: var(--c-info-soft);
+  --color-ring: var(--c-ring);
+}
+
+/* ¿Qué? Escala `brand-*` (teal) — reemplaza el azul anterior. Mantiene funcionando las
+   clases `bg-brand-600`, `text-brand-400`, etc. ya usadas en el código, ahora en la marca
+   nueva. Y una escala `accent-*` (durazno) para realces. */
+@theme {
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-200: #99f6e4;
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+  --color-brand-900: #134e4a;
+
+  --color-accent-50: #fff7ed;
+  --color-accent-100: #ffedd5;
+  --color-accent-200: #fed7aa;
+  --color-accent-300: #fdba74;
+  --color-accent-400: #fb923c;
+  --color-accent-500: #f97316;
+  --color-accent-600: #ea580c;
+  --color-accent-700: #c2410c;
+}
+
+/* ───────────── BASE ───────────── */
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-body {
-  margin: 0;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
-}
-
-/*
- * ¿Qué? Indicar al navegador qué esquema de color usar para los controles nativos
- *   (<select> y su lista de opciones, <input type="date"/"time"> y sus iconos,
- *   scrollbars, etc.).
- * ¿Para qué? Sin esto el navegador dibuja esos controles siempre en modo claro:
- *   en el tema oscuro se veían con texto negro ("mm/dd/yyyy", "Selecciona…") e
- *   iconos negros sobre el fondo oscuro del campo.
- * ¿Impacto? En modo oscuro los controles nativos pasan a texto e iconos claros.
- */
-html {
   color-scheme: light;
 }
 html.dark {
   color-scheme: dark;
 }
 
-/*
- * ¿Qué? "Toques cómic" — identidad visual de Super Amigos Grooming Spa.
- * ¿Para qué? El nombre evoca un equipo de superhéroes; estas utilidades aplican esa
- *   personalidad SOLO en títulos, botones y tarjetas destacadas — el resto de la app
- *   (formularios, tablas, texto de cuerpo) se mantiene limpio y legible a propósito,
- *   para que se sienta con carácter sin volverse infantil ni difícil de leer.
- * ¿Impacto? Cambiar estas reglas actualiza el estilo cómic en TODA la aplicación a la vez.
- */
-
-/* ¿Qué? Fuente de cómic — solo para títulos grandes (h1) y el nombre de marca. */
-.font-comic {
-  font-family: 'Bangers', 'Segoe UI', system-ui, sans-serif;
-  letter-spacing: 0.03em;
+body {
+  margin: 0;
+  font-family: "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+  background-color: var(--c-bg);
+  color: var(--c-text);
 }
 
-/* ¿Qué? Borde grueso tipo viñeta de cómic — negro en claro, claro en oscuro para
- *   mantener contraste contra el fondo oscuro (un borde negro se perdería ahí). */
-.comic-border {
-  border-width: 3px;
-  border-color: #000;
+h1, h2, h3, .font-display {
+  font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
+  letter-spacing: -0.01em;
 }
-:root[data-theme='dark'] .comic-border,
-:root:not([data-theme='light']) .comic-border {
-  border-color: var(--color-slate-200);
+
+/* ───────────── UTILIDADES DEL DESIGN SYSTEM ───────────── */
+
+/* Tarjeta estándar — reemplaza el patrón `.comic-border .comic-shadow`. */
+.card {
+  background-color: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 1rem;
+  box-shadow: var(--sh-card);
 }
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) .comic-border {
-    border-color: #000;
+
+/* Anillo de foco consistente para elementos interactivos custom. */
+.focus-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+.focus-ring:focus-visible {
+  outline-color: var(--c-ring);
+}
+
+/* Gradiente sutil de marca para héroes y cabeceras destacadas. */
+.brand-gradient {
+  background-image: linear-gradient(135deg, #0f766e, #14b8a6);
+}
+
+/* Aparición suave reutilizable (toasts, modales). */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fade-in-up 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up {
+    animation: none;
   }
-}
-
-/* ¿Qué? Sombra "offset" dura (sin difuminado) en el acento cómic — el efecto clásico
- *   de panel de cómic. Al presionar/enfocar, la sombra se reduce y el elemento se
- *   desplaza hacia ella, simulando que el botón "se hunde" en el papel.
- * ¿Impacto? Usa el acento ámbar en vez de negro para que se vea bien en ambos temas. */
-.comic-shadow {
-  box-shadow: 4px 4px 0 0 var(--color-comic-accent);
-  transition: box-shadow 150ms ease, transform 150ms ease;
-}
-.comic-shadow:active {
-  box-shadow: 1px 1px 0 0 var(--color-comic-accent);
-  transform: translate(3px, 3px);
-}
-
-/* ¿Qué? Aparición suave para el carrusel de fotos del hero — cada vez que cambia el
- *   grupo de fotos (cada 5s), el nuevo grupo entra con un pequeño fundido + acercamiento. */
-@keyframes comic-fade-in {
-  from {
-    opacity: 0;
-    transform: scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-.comic-fade-in {
-  animation: comic-fade-in 500ms ease-out;
 }

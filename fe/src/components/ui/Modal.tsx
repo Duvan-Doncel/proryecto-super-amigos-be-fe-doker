@@ -1,50 +1,81 @@
 /**
  * Archivo: components/ui/Modal.tsx
  * Descripción: Ventana modal (pop-up) accesible reutilizable del design system.
- * ¿Para qué? Mostrar contenido sobre la página actual sin navegar — se usa para el
- *   pop-up de inicio de sesión / registro que se abre desde la navbar.
- * ¿Impacto? Centraliza el comportamiento accesible (cerrar con Escape, clic en el
- *   fondo, bloqueo del scroll de la página, foco inicial) para todos los modales.
+ * ¿Para qué? Mostrar contenido sobre la página sin navegar — login/registro, formularios
+ *   de crear/editar en el panel de staff, y confirmaciones de acciones destructivas.
+ * ¿Impacto? Centraliza el comportamiento accesible: cerrar con Escape / clic en el fondo,
+ *   bloqueo del scroll de fondo, foco inicial dentro del panel, TRAMPA de foco (Tab cicla
+ *   dentro) y DEVOLUCIÓN del foco al elemento que abrió el modal al cerrarse.
  */
 
-import { useEffect, useRef } from 'react';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
+type ModalSize = 'sm' | 'md' | 'lg';
+
 interface ModalProps {
-  // ¿Qué? Controla si el modal está visible. Cuando es false no se renderiza nada.
   isOpen: boolean;
-  // ¿Qué? Se llama cuando el usuario pide cerrar (botón X, tecla Escape o clic en el fondo).
   onClose: () => void;
-  // ¿Qué? Título visible del modal — también sirve de etiqueta accesible (aria-labelledby).
   title: ReactNode;
   children: ReactNode;
+  size?: ModalSize;
+  // ¿Qué? Franja de acciones fija al pie (botones Guardar / Cancelar). Opcional.
+  footer?: ReactNode;
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
-  const panelRef = useRef<HTMLDivElement>(null);
+const SIZE_CLASSES: Record<ModalSize, string> = {
+  sm: 'max-w-sm',
+  md: 'max-w-md',
+  lg: 'max-w-2xl',
+};
 
-  // ¿Qué? Cierra con Escape y bloquea el scroll del fondo mientras el modal está abierto.
-  // ¿Para qué? Un modal que deja hacer scroll a la página de atrás se siente roto.
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+export function Modal({ isOpen, onClose, title, children, size = 'md', footer }: ModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!isOpen) return;
 
+    // ¿Qué? Recordar qué tenía el foco para devolvérselo al cerrar.
+    returnFocusRef.current = document.activeElement as HTMLElement | null;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      // ¿Qué? Trampa de foco — Tab/Shift+Tab no sale del panel.
+      if (e.key === 'Tab' && panelRef.current) {
+        const nodes = panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE);
+        if (nodes.length === 0) return;
+        const first = nodes[0];
+        const last = nodes[nodes.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    // ¿Qué? Lleva el foco al panel al abrir — para que Tab y los lectores de pantalla
-    //   empiecen dentro del modal y no en la página de atrás.
-    panelRef.current?.focus();
+    // ¿Qué? Llevar el foco al primer control del panel (o al panel mismo).
+    const firstFocusable = panelRef.current?.querySelector<HTMLElement>(FOCUSABLE);
+    (firstFocusable ?? panelRef.current)?.focus();
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = previousOverflow;
+      returnFocusRef.current?.focus?.();
     };
   }, [isOpen, onClose]);
 
@@ -52,9 +83,8 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm sm:p-6"
       onMouseDown={(e) => {
-        // ¿Qué? Solo cierra si el clic empezó en el fondo, no si se arrastró desde dentro.
         if (e.target === e.currentTarget) onClose();
       }}
     >
@@ -64,26 +94,29 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         aria-modal="true"
         aria-labelledby="modal-title"
         tabIndex={-1}
-        className="relative w-full max-w-md my-8 rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl focus:outline-none"
+        className={`animate-fade-in-up card my-8 w-full ${SIZE_CLASSES[size]} p-0 shadow-[var(--shadow-pop)] focus:outline-none`}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-gray-200 dark:border-slate-800 px-6 py-4">
-          <h2
-            id="modal-title"
-            className="text-xl font-comic tracking-wide text-gray-900 dark:text-slate-100"
-          >
+        <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
+          <h2 id="modal-title" className="font-display text-lg font-bold text-text">
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="-mr-2 -mt-1 p-2 rounded-lg text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+            className="focus-ring -mr-2 -mt-1 rounded-lg p-2 text-text-muted hover:bg-surface-2 hover:text-text"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
         <div className="px-6 py-5">{children}</div>
+
+        {footer && (
+          <div className="flex items-center justify-end gap-2 border-t border-border px-6 py-4">
+            {footer}
+          </div>
+        )}
       </div>
     </div>,
     document.body,

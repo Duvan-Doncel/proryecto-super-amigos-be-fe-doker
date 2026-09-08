@@ -1,17 +1,40 @@
 <!doctype html>
-<html lang="es" class="">
+<html lang="es">
 
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Super Amigos Grooming Spa — Agenda citas, reporta síntomas y compra productos para tu mascota" />
+  <meta name="theme-color" content="#0f766e" />
+  <meta name="description" content="Super Amigos Grooming Spa — Peluquería y spa para tu mascota en Bogotá. Agenda tu cita, reporta síntomas leves y compra productos, todo desde un solo lugar." />
   <title>Super Amigos Grooming Spa</title>
 
-  <!-- ¿Qué? Fuente estilo cómic, usada solo en títulos (ver src/index.css, clase .font-comic). -->
+  <!--
+    ¿Qué? Guard anti-flash del tema.
+    ¿Para qué? Aplicar la clase `.dark` ANTES del primer paint, leyendo la preferencia
+      guardada (o la del sistema si el usuario eligió "system" / nunca eligió). Sin esto,
+      quien tiene el tema oscuro ve un parpadeo blanco en cada carga.
+    ¿Impacto? Debe ir sincrónico en <head>, antes de cargar el bundle. ThemeProvider
+      toma el control después sin cambiar nada visualmente.
+  -->
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('theme');
+        var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var dark = saved === 'dark' || ((saved === 'system' || !saved) && systemDark);
+        document.documentElement.classList.toggle('dark', dark);
+      } catch (e) { /* localStorage bloqueado: se queda en claro */ }
+    })();
+  </script>
+
+  <!-- ¿Qué? Nunito (títulos, cálida) + Inter (cuerpo). Con fallback de sistema en index.css. -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bangers&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Nunito:wght@600;700;800&display=swap"
+    rel="stylesheet"
+  />
 </head>
 
 <body>

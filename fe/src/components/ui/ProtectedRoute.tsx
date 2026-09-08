@@ -24,8 +24,8 @@ export function ProtectedRoute({ children, role }: ProtectedRouteProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950">
-        <p className="text-gray-500 dark:text-slate-400 text-sm">Cargando...</p>
+      <div className="min-h-screen flex items-center justify-center bg-bg">
+        <p className="text-text-muted text-sm">Cargando...</p>
       </div>
     );
   }

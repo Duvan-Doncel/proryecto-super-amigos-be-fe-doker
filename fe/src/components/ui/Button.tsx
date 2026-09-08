@@ -15,20 +15,20 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   isLoading?: boolean;
 }
 
-// ¿Qué? Mapa de clases Tailwind por variante de botón.
+// ¿Qué? Mapa de clases Tailwind por variante de botón, sobre tokens del design system.
 // ¿Para qué? Separar las variantes facilita añadir nuevas sin condicionales en el JSX.
 const VARIANT_CLASSES: Record<NonNullable<ButtonProps['variant']>, string> = {
-  // ¿Qué? El botón principal lleva el "toque cómic": borde grueso + sombra offset (ver
-  //   src/index.css) — es la acción destacada de cada pantalla, así que es donde más
-  //   tiene sentido la personalidad de marca sin saturar el resto de la interfaz.
+  // ¿Qué? Acción principal de la pantalla — fondo de marca (teal) con texto blanco
+  //   (contraste AA ≥ 5:1 en ambos temas).
   primary:
-    'bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white ' +
-    'comic-border comic-shadow disabled:shadow-none',
+    'bg-[color:var(--color-btn)] hover:bg-[color:var(--color-btn-hover)] ' +
+    'text-[color:var(--color-btn-fg)] shadow-sm',
+  // ¿Qué? Acción secundaria — superficie con borde.
   secondary:
-    'bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 ' +
-    'text-gray-700 dark:text-slate-300 border border-gray-300 dark:border-slate-600',
+    'bg-surface hover:bg-surface-2 text-text border border-border',
+  // ¿Qué? Acción destructiva. Rojo medio con texto blanco (AA en ambos temas).
   danger:
-    'bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white',
+    'bg-[color:var(--color-btn-danger)] hover:bg-[color:var(--color-btn-danger-hover)] text-white',
 };
 
 export function Button({
@@ -46,8 +46,8 @@ export function Button({
       className={[
         'inline-flex items-center justify-center gap-2',
         'px-4 py-2 text-sm font-medium rounded-lg',
-        'transition-colors duration-200',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500',
+        'transition-[background-color,filter] duration-150',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--color-ring)]',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         VARIANT_CLASSES[variant],
         className,
