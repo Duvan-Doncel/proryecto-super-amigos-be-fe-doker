@@ -31,3 +31,25 @@ export function validate(schema: ZodSchema) {
     next();
   };
 }
+
+// ¿Qué? Igual que `validate`, pero sobre req.query — para endpoints de listado con
+//   paginación/filtros (ej. GET /products?page=2&category=juguetes).
+// ¿Para qué? Sin esto, page/limit llegarían como string sin validar (o directamente
+//   ausentes) y cada controller tendría que parsearlos y ponerles límites a mano.
+export function validateQuery(schema: ZodSchema) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.query);
+
+    if (!result.success) {
+      const details = result.error.errors.map((e) => ({
+        field: e.path.join('.'),
+        message: e.message,
+      }));
+      next(new ValidationError(JSON.stringify(details)));
+      return;
+    }
+
+    req.validatedQuery = result.data;
+    next();
+  };
+}

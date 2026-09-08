@@ -16,6 +16,9 @@ export interface AuthContextValue {
   login: (data: LoginRequest) => Promise<User>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => void;
+  // ¿Qué? Vuelve a pedir el perfil al backend y lo refresca en el contexto.
+  //   Se usa tras editar el perfil para que Navbar, saludos, etc. muestren el dato nuevo.
+  refreshUser: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);

@@ -5,14 +5,20 @@
 
 import { Router, type IRouter } from 'express';
 import { authenticate, requireRole } from '../../middlewares/auth.middleware.js';
-import { validate } from '../../middlewares/validate.middleware.js';
-import { createProductSchema, updateProductSchema } from './products.schema.js';
+import { validate, validateQuery } from '../../middlewares/validate.middleware.js';
+import { createProductSchema, updateProductSchema, listProductsQuerySchema } from './products.schema.js';
 import * as productsController from './products.controller.js';
 
 const router: IRouter = Router();
 
-router.get('/', productsController.listPublic);
-router.get('/staff', authenticate, requireRole('staff'), productsController.listForStaff);
+router.get('/', validateQuery(listProductsQuerySchema), productsController.listPublic);
+router.get(
+  '/staff',
+  authenticate,
+  requireRole('staff'),
+  validateQuery(listProductsQuerySchema),
+  productsController.listForStaff,
+);
 router.post(
   '/',
   authenticate,

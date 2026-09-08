@@ -9,7 +9,7 @@ export const createSupplierSchema = z.object({
   name: z.string().min(2, 'El nombre del proveedor es requerido.').max(150).trim(),
   contactName: z.string().max(150).trim().optional(),
   phone: z.string().max(30).trim().optional(),
-  email: z.string().email('El email no tiene un formato válido.').trim().optional(),
+  email: z.string().email('El email no tiene un formato válido.').max(255).trim().optional(),
   address: z.string().max(300).trim().optional(),
 });
 
@@ -19,7 +19,7 @@ export const updateSupplierSchema = z.object({
   name: z.string().min(2).max(150).trim().optional(),
   contactName: z.string().max(150).trim().optional(),
   phone: z.string().max(30).trim().optional(),
-  email: z.string().email().trim().optional(),
+  email: z.string().email().max(255).trim().optional(),
   address: z.string().max(300).trim().optional(),
   active: z.boolean().optional(),
 });

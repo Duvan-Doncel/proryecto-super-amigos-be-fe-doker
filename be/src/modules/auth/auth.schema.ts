@@ -12,6 +12,16 @@ import { z } from 'zod';
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const PASSWORD_MESSAGE =
   'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.';
+// ¿Qué? bcrypt (usado en security.ts para hashear) solo procesa los primeros 72 bytes de
+//   cualquier contraseña — todo lo que exceda ese límite se ignora en silencio.
+// ¿Para qué? Sin un tope explícito, el regex de arriba (que solo exige un MÍNIMO de 8
+//   caracteres) deja pasar contraseñas de cualquier largo. Alguien podría mandar una
+//   contraseña de varios megabytes: no rompe el hash, pero sí desperdicia CPU/memoria
+//   procesándola antes de llegar a bcrypt — un vector de denegación de servicio barato.
+const MAX_PASSWORD_LENGTH = 72;
+// ¿Qué? Límite general para campos de email — coincide con la columna users.email
+//   (VarChar(255)); z.email() valida el FORMATO pero no pone techo al largo.
+const MAX_EMAIL_LENGTH = 255;
 
 // ¿Qué? Nombre/apellido válido: palabras de solo letras (cualquier idioma) separadas
 //   por un espacio, apóstrofo o guion. Rechaza dígitos y símbolos.
@@ -49,8 +59,8 @@ export const registerSchema = z.object({
     .regex(NAME_REGEX, 'El apellido solo puede contener letras.'),
   // ¿Qué? El teléfono es obligatorio (RN-003 de RF-001) — canal principal para confirmar citas.
   phone: z.string().trim().regex(PHONE_REGEX, 'El teléfono debe tener entre 7 y 15 dígitos.'),
-  email: z.string().email('El email no tiene un formato válido.').toLowerCase().trim(),
-  password: z.string().regex(PASSWORD_REGEX, PASSWORD_MESSAGE),
+  email: z.string().email('El email no tiene un formato válido.').max(MAX_EMAIL_LENGTH).toLowerCase().trim(),
+  password: z.string().regex(PASSWORD_REGEX, PASSWORD_MESSAGE).max(MAX_PASSWORD_LENGTH),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -71,8 +81,8 @@ export const createStaffSchema = z.object({
     .min(2, 'El apellido debe tener al menos 2 caracteres.')
     .max(100)
     .regex(NAME_REGEX, 'El apellido solo puede contener letras.'),
-  email: z.string().email('El email no tiene un formato válido.').toLowerCase().trim(),
-  password: z.string().regex(PASSWORD_REGEX, PASSWORD_MESSAGE),
+  email: z.string().email('El email no tiene un formato válido.').max(MAX_EMAIL_LENGTH).toLowerCase().trim(),
+  password: z.string().regex(PASSWORD_REGEX, PASSWORD_MESSAGE).max(MAX_PASSWORD_LENGTH),
 });
 
 export type CreateStaffInput = z.infer<typeof createStaffSchema>;
@@ -83,8 +93,8 @@ export type CreateStaffInput = z.infer<typeof createStaffSchema>;
 // ¿Impacto? La contraseña solo valida que no esté vacía — la verificación del hash
 //   la realiza el service, no el schema (evitar revelar reglas de contraseña en login).
 export const loginSchema = z.object({
-  email: z.string().email('El email no tiene un formato válido.').toLowerCase().trim(),
-  password: z.string().min(1, 'La contraseña es requerida.'),
+  email: z.string().email('El email no tiene un formato válido.').max(MAX_EMAIL_LENGTH).toLowerCase().trim(),
+  password: z.string().min(1, 'La contraseña es requerida.').max(MAX_PASSWORD_LENGTH),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -94,7 +104,7 @@ export type LoginInput = z.infer<typeof loginSchema>;
 // ¿Para qué? Evitar que el endpoint POST /refresh reciba un body vacío y propague un error genérico.
 // ¿Impacto? La validación criptográfica real la hace verifyRefreshToken en el service.
 export const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, 'El refresh token es requerido.'),
+  refreshToken: z.string().min(1, 'El refresh token es requerido.').max(1000),
 });
 
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
@@ -106,8 +116,8 @@ export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 //   cada campo por separado, se necesita comparar ambos valores juntos.
 export const changePasswordSchema = z
   .object({
-    currentPassword: z.string().min(1, 'La contraseña actual es requerida.'),
-    newPassword: z.string().regex(PASSWORD_REGEX, PASSWORD_MESSAGE),
+    currentPassword: z.string().min(1, 'La contraseña actual es requerida.').max(MAX_PASSWORD_LENGTH),
+    newPassword: z.string().regex(PASSWORD_REGEX, PASSWORD_MESSAGE).max(MAX_PASSWORD_LENGTH),
   })
   .refine((data) => data.currentPassword !== data.newPassword, {
     message: 'La nueva contraseña no puede ser igual a la actual.',
@@ -122,7 +132,7 @@ export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 // ¿Impacto? El service siempre responde 200 independientemente de si el email existe —
 //   este schema solo verifica el formato, no la existencia del usuario.
 export const forgotPasswordSchema = z.object({
-  email: z.string().email('El email no tiene un formato válido.').toLowerCase().trim(),
+  email: z.string().email('El email no tiene un formato válido.').max(MAX_EMAIL_LENGTH).toLowerCase().trim(),
 });
 
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
@@ -133,8 +143,8 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 // ¿Impacto? La verificación de que el token existe, no expiró y no fue usado
 //   es responsabilidad del service — este schema solo valida el formato del body.
 export const resetPasswordSchema = z.object({
-  token: z.string().min(1, 'El token es requerido.'),
-  newPassword: z.string().regex(PASSWORD_REGEX, PASSWORD_MESSAGE),
+  token: z.string().min(1, 'El token es requerido.').max(255),
+  newPassword: z.string().regex(PASSWORD_REGEX, PASSWORD_MESSAGE).max(MAX_PASSWORD_LENGTH),
 });
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
@@ -145,7 +155,7 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 // ¿Impacto? Sin validación previa, un body vacío causaría una búsqueda innecesaria en BD
 //   que siempre retornaría null y respondería 400 — es más eficiente rechazarlo antes.
 export const verifyEmailSchema = z.object({
-  token: z.string().min(1, 'El token de verificación es requerido.'),
+  token: z.string().min(1, 'El token de verificación es requerido.').max(255),
 });
 
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;

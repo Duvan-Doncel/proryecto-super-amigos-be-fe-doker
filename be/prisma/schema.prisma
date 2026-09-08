@@ -127,6 +127,8 @@ model User {
   orders                  Order[]
   sales                   Sale[]                   @relation("SaleClient")
   salesRegistered         Sale[]                   @relation("SaleRegisteredBy")
+  productsCreated         Product[]                @relation("ProductCreatedBy")
+  productsUpdated         Product[]                @relation("ProductUpdatedBy")
 
   @@map("users")
 }
@@ -368,7 +370,17 @@ model Product {
   category    String?  @db.VarChar(50)
   active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
+  // ¿Qué? Trazabilidad: quién creó/editó el producto y cuándo fue la última edición.
+  // ¿Para qué? El admin puede ver de un vistazo quién dio de alta cada producto y detectar
+  //   cambios no esperados (ej. alguien bajó un precio por error).
+  // ¿Impacto? Nullable porque los productos creados antes de esta migración no tienen ese dato
+  //   — se muestran como "sin registrar" en vez de fallar o inventar un autor.
+  createdById String?   @map("created_by_id") @db.Uuid
+  updatedById String?   @map("updated_by_id") @db.Uuid
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
 
+  createdBy          User?               @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy          User?               @relation("ProductUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   orderItems         OrderItem[]
   supplierOrderItems SupplierOrderItem[]
   saleItems          SaleItem[]

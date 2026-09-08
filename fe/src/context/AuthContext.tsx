@@ -65,6 +65,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
   }, []);
 
+  // ¿Qué? Re-lee el perfil del backend y lo refresca en el contexto.
+  const refreshUser = useCallback(async () => {
+    const profile = await authApi.getMe();
+    setUser(profile);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -74,6 +80,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         login,
         register,
         logout,
+        refreshUser,
       }}
     >
       {children}

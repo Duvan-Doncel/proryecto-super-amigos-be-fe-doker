@@ -25,3 +25,18 @@ export const updateProductSchema = z.object({
 });
 
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
+
+// ¿Qué? Query params de listado: paginación + filtros que ya existían como columnas
+//   (category) o que buscan sobre una ya existente (search → name).
+// ¿Para qué? Coerce porque llegan como string desde la query string ("?page=2").
+export const listProductsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  category: z.string().trim().max(50).optional(),
+  search: z.string().trim().max(100).optional(),
+  // ¿Qué? Solo la usa /products/staff (incluir inactivos) — zod descarta claves no declaradas
+  //   del query, así que debe listarse aquí aunque el listado público la ignore.
+  active: z.enum(['true', 'false']).optional(),
+});
+
+export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;

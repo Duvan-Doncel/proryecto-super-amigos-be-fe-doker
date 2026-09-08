@@ -19,6 +19,12 @@ declare global {
         email: string;
         role: 'client' | 'staff';
       };
+      // ¿Qué? Resultado de `validateQuery` — los query params ya parseados/con defaults
+      //   aplicados por zod (page, limit, etc. como number, no como string).
+      // ¿Para qué? Express 5 volvió `req.query` de solo lectura (ya no se puede reasignar
+      //   como en `validate`, que sí sobrescribe `req.body`), así que el resultado
+      //   validado se guarda aparte en vez de intentar mutar `req.query`.
+      validatedQuery?: unknown;
     }
   }
 }
