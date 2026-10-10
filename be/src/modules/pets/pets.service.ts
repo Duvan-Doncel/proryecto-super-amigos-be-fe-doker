@@ -6,6 +6,8 @@
  * ¿Impacto? Un error aquí bloquea todo el flujo del semáforo para un cliente.
  */
 
+import { unlink } from 'node:fs/promises';
+import path from 'node:path';
 import type { Pet, PetSkinCondition } from '@prisma/client';
 import { db } from '../../db/index.js';
 import { NotFoundError, ForbiddenError } from '../../middlewares/error.middleware.js';
@@ -29,6 +31,7 @@ export interface PetResponse {
   behavior: string | null;
   skinConditions: { type: string; note: string | null }[];
   pathology: string;
+  photoUrl: string | null;
   createdAt: Date;
 }
 
@@ -50,6 +53,7 @@ function toPetResponse(pet: PetWithConditions): PetResponse {
       .map((c) => ({ type: c.type, note: c.note }))
       .sort((a, b) => a.type.localeCompare(b.type)),
     pathology: pet.pathology,
+    photoUrl: pet.photoUrl,
     createdAt: pet.createdAt,
   };
 }
@@ -173,4 +177,42 @@ export async function assertPetBelongsToClient(petId: string, clientId: string):
   if (pet.clientId !== clientId) throw new ForbiddenError('Esta mascota no pertenece a tu cuenta.');
 
   return pet;
+}
+
+// ¿Qué? Elimina una mascota. El borrado en cascada (definido en el schema) se lleva sus
+//   citas, reportes de síntoma y condiciones de piel — es intencional: sin la mascota,
+//   esos registros dejan de tener sentido para el cliente.
+export async function deletePet(id: string): Promise<void> {
+  const existing = await db.pet.findUnique({ where: { id } });
+  if (!existing) throw new NotFoundError('Mascota no encontrada.');
+
+  if (existing.photoUrl) await deletePhotoFile(existing.photoUrl);
+  await db.pet.delete({ where: { id } });
+}
+
+// ¿Qué? Guarda la ruta de la foto recién subida (ver middlewares/upload.middleware.ts) y
+//   borra el archivo anterior si había uno, para no acumular huérfanos en disco.
+export async function setPetPhoto(id: string, photoUrl: string): Promise<PetResponse> {
+  const existing = await db.pet.findUnique({ where: { id } });
+  if (!existing) throw new NotFoundError('Mascota no encontrada.');
+
+  if (existing.photoUrl) await deletePhotoFile(existing.photoUrl);
+
+  const pet = await db.pet.update({
+    where: { id },
+    data: { photoUrl },
+    include: { skinConditions: true },
+  });
+
+  return toPetResponse(pet);
+}
+
+// ¿Qué? Best-effort: si el archivo ya no existe o la ruta es inesperada, no interrumpe el flujo.
+async function deletePhotoFile(photoUrl: string): Promise<void> {
+  try {
+    const filename = path.basename(photoUrl);
+    await unlink(path.join(process.cwd(), 'uploads', 'pets', filename));
+  } catch {
+    /* archivo ya no existe o no se pudo borrar — no es crítico */
+  }
 }

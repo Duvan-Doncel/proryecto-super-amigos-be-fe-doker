@@ -52,6 +52,12 @@ export const createPetSchema = z.object({
 
 export type CreatePetInput = z.infer<typeof createPetSchema>;
 
+// ¿Qué? Igual que createPetSchema pero SIN clientId — el cliente registra su propia
+//   mascota (POST /api/v1/pets/me); el controller toma el dueño del token, nunca del body.
+export const createMyPetSchema = z.object({ ...petFields });
+
+export type CreateMyPetInput = z.infer<typeof createMyPetSchema>;
+
 // ¿Qué? Edición de una mascota (RF-012) — todos los campos opcionales, se actualiza lo que llega.
 // ¿Para qué? El staff ajusta talla, pelo o condiciones de piel a medida que conoce al animal.
 export const updatePetSchema = z.object({

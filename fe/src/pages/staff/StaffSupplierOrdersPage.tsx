@@ -25,6 +25,8 @@ import { SelectField } from '@/components/ui/SelectField';
 import { InputField } from '@/components/ui/InputField';
 import { Alert } from '@/components/ui/Alert';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { FilterBar } from '@/components/ui/FilterBar';
+import { rowNumber } from '@/utils/tablePaging';
 import { useToast } from '@/hooks/useToast';
 
 interface DraftItem {
@@ -60,7 +62,20 @@ export function StaffSupplierOrdersPage() {
   }, []);
 
   const open = useMemo(() => orders.filter((o) => o.status === 'ordered').length, [orders]);
-  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(orders, 8);
+
+  const [statusFilter, setStatusFilter] = useState<'' | 'ordered' | 'received'>('');
+  const [supplierFilter, setSupplierFilter] = useState('');
+  const hasActiveFilters = statusFilter !== '' || supplierFilter !== '';
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      if (statusFilter && o.status !== statusFilter) return false;
+      if (supplierFilter && o.supplierId !== supplierFilter) return false;
+      return true;
+    });
+  }, [orders, statusFilter, supplierFilter]);
+
+  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(filteredOrders, 8);
 
   const updateItem = (index: number, field: keyof DraftItem, value: string) => {
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
@@ -171,16 +186,46 @@ export function StaffSupplierOrdersPage() {
 
         <div>
           <h2 className="mb-3 font-display text-lg font-bold text-text">Pedidos registrados</h2>
-          {orders.length === 0 ? (
-            <EmptyState icon={<Truck className="h-6 w-6" />} title="Aún no hay pedidos a proveedor" />
+
+          {orders.length > 0 && (
+            <FilterBar
+              onClear={() => {
+                setStatusFilter('');
+                setSupplierFilter('');
+              }}
+              hasActiveFilters={hasActiveFilters}
+            >
+              <div className="w-40">
+                <SelectField id="order-status" label="Estado" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as '' | 'ordered' | 'received')}>
+                  <option value="">Todos</option>
+                  <option value="ordered">Pedido</option>
+                  <option value="received">Recibido</option>
+                </SelectField>
+              </div>
+              <div className="w-48">
+                <SelectField id="order-supplier" label="Proveedor" value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)}>
+                  <option value="">Todos</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </SelectField>
+              </div>
+            </FilterBar>
+          )}
+
+          {total === 0 ? (
+            <EmptyState icon={<Truck className="h-6 w-6" />} title={hasActiveFilters ? 'Sin resultados con estos filtros' : 'Aún no hay pedidos a proveedor'} />
           ) : (
             <>
               <ul className="space-y-3">
-                {pageItems.map((o) => (
+                {pageItems.map((o, i) => (
                   <Card key={o.id} padded={false}>
                     <div className="p-4 text-sm">
                       <div className="mb-1 flex items-center justify-between">
-                        <span className="font-medium text-text">{o.supplierName}</span>
+                        <span className="font-medium text-text">
+                          <span className="mr-1 text-text-muted">#{rowNumber(page, pageSize, i)}</span>
+                          {o.supplierName}
+                        </span>
                         <StatusBadge status={o.status} />
                       </div>
                       <ul className="mb-2 list-disc pl-4 text-text-muted">

@@ -7,6 +7,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as appointmentsService from './appointments.service.js';
 import type {
+  AvailabilityQuery,
   CreateAppointmentInput,
   QuoteAppointmentInput,
   UpdateAppointmentStatusInput,
@@ -49,6 +50,18 @@ export async function quote(req: Request, res: Response, next: NextFunction): Pr
     const { petId, serviceId } = req.body as QuoteAppointmentInput;
     const breakdown = await appointmentsService.quoteAppointment(req.user!.id, petId, serviceId);
     res.status(200).json({ success: true, data: breakdown });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ¿Qué? Cupos ocupados por día en un rango — para que el cliente vea disponibilidad antes
+//   de elegir fecha (RF-009).
+export async function availability(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { from, to } = req.validatedQuery as AvailabilityQuery;
+    const data = await appointmentsService.getAvailability(from, to);
+    res.status(200).json({ success: true, data });
   } catch (err) {
     next(err);
   }

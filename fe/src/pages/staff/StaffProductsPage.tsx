@@ -21,6 +21,9 @@ import { InputField } from '@/components/ui/InputField';
 import { Alert } from '@/components/ui/Alert';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { FilterBar } from '@/components/ui/FilterBar';
+import { SelectField } from '@/components/ui/SelectField';
+import { rowNumber } from '@/utils/tablePaging';
 import { useToast } from '@/hooks/useToast';
 
 interface FormData {
@@ -57,6 +60,13 @@ export function StaffProductsPage() {
   const [pageSize, setPageSize] = useState(10);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
+  // ¿Qué? El backend solo distingue "solo activos" vs "sin filtrar" — no existe un filtro
+  //   real de "solo inactivos" (el estado de cada fila ya se ve en la tabla).
+  const [activeOnly, setActiveOnly] = useState(false);
+  const [lowStockOnly, setLowStockOnly] = useState(false);
+
   const [formOpen, setFormOpen] = useState(false);
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
@@ -67,7 +77,13 @@ export function StaffProductsPage() {
   const loadProducts = (targetPage = page, size = pageSize) => {
     setIsLoading(true);
     return productsApi
-      .listProductsForStaff(false, { page: targetPage, limit: size })
+      .listProductsForStaff(activeOnly, {
+        page: targetPage,
+        limit: size,
+        search: search || undefined,
+        category: category || undefined,
+        lowStock: lowStockOnly ? 'true' : undefined,
+      })
       .then((r) => {
         setProducts(r.products);
         setMeta(r.meta);
@@ -78,7 +94,16 @@ export function StaffProductsPage() {
   useEffect(() => {
     loadProducts(page, pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize]);
+  }, [page, pageSize, search, category, activeOnly, lowStockOnly]);
+
+  const hasActiveFilters = search !== '' || category !== '' || activeOnly || lowStockOnly;
+  const clearFilters = () => {
+    setSearch('');
+    setCategory('');
+    setActiveOnly(false);
+    setLowStockOnly(false);
+    setPage(1);
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -158,9 +183,63 @@ export function StaffProductsPage() {
         />
       </div>
 
+      <FilterBar onClear={clearFilters} hasActiveFilters={hasActiveFilters}>
+        <div className="w-56">
+          <InputField
+            id="product-search"
+            label="Buscar por nombre"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Ej: Correa"
+          />
+        </div>
+        <div className="w-44">
+          <InputField
+            id="product-category"
+            label="Categoría"
+            value={category}
+            onChange={(e) => {
+              setCategory(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Ej: Juguetes"
+          />
+        </div>
+        <div className="w-36">
+          <SelectField
+            id="product-status"
+            label="Estado"
+            value={activeOnly ? 'active' : ''}
+            onChange={(e) => {
+              setActiveOnly(e.target.value === 'active');
+              setPage(1);
+            }}
+          >
+            <option value="">Todos</option>
+            <option value="active">Solo activos</option>
+          </SelectField>
+        </div>
+        <label className="mb-2 flex items-center gap-1.5 pb-2 text-sm text-text">
+          <input
+            type="checkbox"
+            checked={lowStockOnly}
+            onChange={(e) => {
+              setLowStockOnly(e.target.checked);
+              setPage(1);
+            }}
+            className="rounded border-border text-brand-600 focus:ring-brand-500"
+          />
+          Solo stock bajo (≤ {LOW_STOCK})
+        </label>
+      </FilterBar>
+
       <DataTable
         head={
           <>
+            <th>#</th>
             <th>Producto</th>
             <th>Categoría</th>
             <th>Precio</th>
@@ -171,11 +250,12 @@ export function StaffProductsPage() {
         }
         isLoading={isLoading}
         isEmpty={!isLoading && products.length === 0}
-        emptyTitle="Todavía no hay productos"
-        emptyAction={<Button onClick={() => setFormOpen(true)}>Crear el primero</Button>}
+        emptyTitle={hasActiveFilters ? 'Sin resultados con estos filtros' : 'Todavía no hay productos'}
+        emptyAction={!hasActiveFilters ? <Button onClick={() => setFormOpen(true)}>Crear el primero</Button> : undefined}
       >
-        {products.map((p) => (
+        {products.map((p, i) => (
           <tr key={p.id} className={p.active ? '' : 'opacity-60'}>
+            <td className="text-text-muted">{rowNumber(meta?.page ?? page, pageSize, i)}</td>
             <td className="text-text">
               <span className="font-medium">{p.name}</span>
               {formatAuthorLine(p) && (

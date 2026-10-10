@@ -15,6 +15,7 @@ import { AuthModalProvider } from '@/context/AuthModalProvider';
 import { ProtectedRoute } from '@/components/ui/ProtectedRoute';
 import { Layout } from '@/components/layout/Layout';
 import { StaffLayout } from '@/components/layout/StaffLayout';
+import { ClientLayout } from '@/components/layout/ClientLayout';
 import { LandingPage } from '@/pages/LandingPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
@@ -26,7 +27,10 @@ import { PricingInfoPage } from '@/pages/PricingInfoPage';
 import { TermsPage } from '@/pages/legal/TermsPage';
 import { PrivacyPage } from '@/pages/legal/PrivacyPage';
 import { ClientHomePage } from '@/pages/client/ClientHomePage';
-import { ProfilePage } from '@/pages/client/ProfilePage';
+import { ProfileDashboardPage } from '@/pages/client/profile/ProfileDashboardPage';
+import { ProfilePersonalDataPage } from '@/pages/client/profile/ProfilePersonalDataPage';
+import { ProfilePetsPage } from '@/pages/client/profile/ProfilePetsPage';
+import { ProfileHistoryPage } from '@/pages/client/profile/ProfileHistoryPage';
 import { AppointmentPage } from '@/pages/client/AppointmentPage';
 import { SymptomReportPage } from '@/pages/client/SymptomReportPage';
 import { EmergencyPage } from '@/pages/client/EmergencyPage';
@@ -74,14 +78,22 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* ¿Qué? Igual que /staff: un único ProtectedRoute + ClientLayout envuelve las
+             4 secciones del perfil (Dashboard, Datos personales, Mis mascotas, Historial),
+             cada una con su propio menú lateral en vez del Navbar/Footer públicos. */}
           <Route
             path="/app/perfil"
             element={
               <ProtectedRoute role="client">
-                <Layout><ProfilePage /></Layout>
+                <ClientLayout />
               </ProtectedRoute>
             }
-          />
+          >
+            <Route index element={<ProfileDashboardPage />} />
+            <Route path="datos" element={<ProfilePersonalDataPage />} />
+            <Route path="mascotas" element={<ProfilePetsPage />} />
+            <Route path="historial" element={<ProfileHistoryPage />} />
+          </Route>
           <Route
             path="/app/cita"
             element={

@@ -30,6 +30,19 @@ export interface CreateAppointmentRequest {
   notes?: string;
 }
 
+// ¿Qué? Cupos ocupados por día, dentro de un rango — el cliente los consulta antes de
+//   elegir fecha (RF-009). Solo trae los días CON al menos una cita; los ausentes están
+//   en 0 (capacidad completa disponible).
+export interface AvailabilityDay {
+  date: string;
+  booked: number;
+}
+
+export interface Availability {
+  capacity: number;
+  days: AvailabilityDay[];
+}
+
 // ¿Qué? Forma enriquecida usada en la agenda del staff (RF-017).
 export interface AgendaAppointment {
   id: string;

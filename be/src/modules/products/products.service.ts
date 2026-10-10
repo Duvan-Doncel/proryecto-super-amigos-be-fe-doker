@@ -20,6 +20,9 @@ type ProductWithAuthors = Product & {
   updatedBy: AuthorInfo | null;
 };
 
+// ¿Qué? Umbral de "stock bajo" — mismo valor que usa la pantalla de staff para resaltarlo.
+const LOW_STOCK_THRESHOLD = 5;
+
 export interface ProductResponse {
   id: string;
   name: string;
@@ -72,8 +75,9 @@ export async function listProducts(
 
   const where: Prisma.ProductWhereInput = {
     ...(activeOnly ? { active: true } : {}),
-    ...(query.category ? { category: query.category } : {}),
+    ...(query.category ? { category: { contains: query.category, mode: 'insensitive' } } : {}),
     ...(query.search ? { name: { contains: query.search, mode: 'insensitive' } } : {}),
+    ...(query.lowStock === 'true' ? { stock: { lte: LOW_STOCK_THRESHOLD } } : {}),
   };
 
   const [products, total] = await Promise.all([

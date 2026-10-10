@@ -22,6 +22,9 @@ import { InputField } from '@/components/ui/InputField';
 import { Alert } from '@/components/ui/Alert';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { FilterBar } from '@/components/ui/FilterBar';
+import { SelectField } from '@/components/ui/SelectField';
+import { rowNumber } from '@/utils/tablePaging';
 import { useToast } from '@/hooks/useToast';
 
 interface FormData {
@@ -55,7 +58,21 @@ export function StaffServicesPage() {
   }, []);
 
   const active = useMemo(() => services.filter((s) => s.active).length, [services]);
-  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(services, 10);
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'' | 'active' | 'inactive'>('');
+  const hasActiveFilters = search !== '' || statusFilter !== '';
+
+  const filtered = useMemo(() => {
+    return services.filter((s) => {
+      if (statusFilter === 'active' && !s.active) return false;
+      if (statusFilter === 'inactive' && s.active) return false;
+      if (search.trim() && !s.name.toLowerCase().includes(search.trim().toLowerCase())) return false;
+      return true;
+    });
+  }, [services, search, statusFilter]);
+
+  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(filtered, 10);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -124,9 +141,9 @@ export function StaffServicesPage() {
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <StatCard label="Servicios (total)" value={total} icon={<Scissors className="h-4 w-4" />} accent="brand" />
+        <StatCard label="Servicios (total)" value={services.length} icon={<Scissors className="h-4 w-4" />} accent="brand" />
         <StatCard label="Activos" value={active} accent="success" />
-        <StatCard label="Inactivos" value={total - active} accent="neutral" />
+        <StatCard label="Inactivos" value={services.length - active} accent="neutral" />
       </div>
 
       <p className="mb-4 text-sm text-text-muted">
@@ -137,9 +154,29 @@ export function StaffServicesPage() {
         .
       </p>
 
+      <FilterBar
+        onClear={() => {
+          setSearch('');
+          setStatusFilter('');
+        }}
+        hasActiveFilters={hasActiveFilters}
+      >
+        <div className="w-56">
+          <InputField id="service-search" label="Buscar por nombre" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Ej: Baño" />
+        </div>
+        <div className="w-40">
+          <SelectField id="service-status" label="Estado" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as '' | 'active' | 'inactive')}>
+            <option value="">Todos</option>
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
+          </SelectField>
+        </div>
+      </FilterBar>
+
       <DataTable
         head={
           <>
+            <th>#</th>
             <th>Servicio</th>
             <th>Precio base</th>
             <th>Duración</th>
@@ -148,12 +185,13 @@ export function StaffServicesPage() {
           </>
         }
         isLoading={isLoading}
-        isEmpty={!isLoading && services.length === 0}
-        emptyTitle="Todavía no hay servicios"
-        emptyAction={<Button onClick={() => setFormOpen(true)}>Crear el primero</Button>}
+        isEmpty={!isLoading && total === 0}
+        emptyTitle={hasActiveFilters ? 'Sin resultados con estos filtros' : 'Todavía no hay servicios'}
+        emptyAction={!hasActiveFilters ? <Button onClick={() => setFormOpen(true)}>Crear el primero</Button> : undefined}
       >
-        {pageItems.map((s) => (
+        {pageItems.map((s, i) => (
           <tr key={s.id} className={s.active ? '' : 'opacity-60'}>
+            <td className="text-text-muted">{rowNumber(page, pageSize, i)}</td>
             <td className="font-medium text-text">{s.name}</td>
             <td className="tabular-nums text-text">{formatCOP(s.price)}</td>
             <td className="text-text-muted">{s.durationMinutes} min</td>

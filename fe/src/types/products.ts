@@ -39,6 +39,7 @@ export interface ListProductsParams {
   limit?: number;
   category?: string;
   search?: string;
+  lowStock?: 'true';
 }
 
 export interface PaginatedProducts {

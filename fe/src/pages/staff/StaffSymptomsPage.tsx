@@ -6,7 +6,7 @@
  * ¿Impacto? Nunca pide diagnóstico ni medicamento (RN-182) — solo un campo de texto.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Stethoscope, PawPrint } from 'lucide-react';
 import * as reportsApi from '@/api/symptom-reports';
 import type { PendingSymptomReport } from '@/types/symptom-reports';
@@ -23,6 +23,8 @@ import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
+import { FilterBar } from '@/components/ui/FilterBar';
+import { rowNumber } from '@/utils/tablePaging';
 import { useToast } from '@/hooks/useToast';
 
 export function StaffSymptomsPage() {
@@ -45,7 +47,17 @@ export function StaffSymptomsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(reports, 8);
+  const [search, setSearch] = useState('');
+  const hasActiveFilters = search.trim() !== '';
+  const filteredReports = useMemo(() => {
+    if (!search.trim()) return reports;
+    const q = search.trim().toLowerCase();
+    return reports.filter(
+      (r) => `${r.client.firstName} ${r.client.lastName} ${r.pet.name}`.toLowerCase().includes(q),
+    );
+  }, [reports, search]);
+
+  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(filteredReports, 8);
 
   const handleReview = async (id: string) => {
     const recommendation = (drafts[id] ?? '').trim();
@@ -92,12 +104,22 @@ export function StaffSymptomsPage() {
         <EmptyState icon={<Stethoscope className="h-6 w-6" />} title="No hay reportes pendientes" description="Cuando un cliente reporte un síntoma leve, aparecerá aquí." />
       ) : (
         <>
+          <FilterBar onClear={() => setSearch('')} hasActiveFilters={hasActiveFilters}>
+            <div className="w-64">
+              <InputField id="symptom-search" label="Buscar por cliente o mascota" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Ej: Max" />
+            </div>
+          </FilterBar>
+
+          {total === 0 && <EmptyState icon={<Stethoscope className="h-6 w-6" />} title="Sin resultados con estos filtros" />}
+
+          {total > 0 && (
           <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {pageItems.map((r) => (
+            {pageItems.map((r, i) => (
               <Card key={r.id} padded={false}>
                 <div className="p-4">
                   <p className="flex items-center gap-1.5 font-medium text-text">
                     <PawPrint className="h-4 w-4 text-[color:var(--color-primary)]" aria-hidden="true" />
+                    <span className="text-text-muted">#{rowNumber(page, pageSize, i)}</span>
                     {r.pet.name}
                     <span className="text-xs font-normal text-text-muted">
                       ({speciesLabel(r.pet.species)}) · {r.client.firstName} {r.client.lastName}
@@ -130,6 +152,8 @@ export function StaffSymptomsPage() {
               </Card>
             ))}
           </ul>
+          )}
+          {total > 0 && (
           <Pagination
             page={page}
             pageCount={pageCount}
@@ -139,6 +163,7 @@ export function StaffSymptomsPage() {
             onPageSizeChange={setPageSize}
             itemNoun="reportes"
           />
+          )}
         </>
       )}
     </div>

@@ -68,6 +68,21 @@ function toMinutes(time: string): number {
 const OPENING_MINUTES = 9 * 60; // 9:00 a.m.
 const CLOSING_MINUTES = 18 * 60; // 6:00 p.m.
 
+// ¿Qué? Tope de citas de grooming que el local puede atender en un mismo día — el negocio
+//   solo tiene capacidad física para ~10 baños/día. Cuenta citas 'pending'/'confirmed'/
+//   'completed'; las 'cancelled' NO cuentan, así que cancelar libera el cupo para otro cliente.
+const DAILY_APPOINTMENT_CAPACITY = 10;
+
+// ¿Qué? Cuántas citas ya ocupan un cupo en una fecha dada (no canceladas).
+async function countBookedAppointments(date: string): Promise<number> {
+  return db.appointment.count({
+    where: {
+      date: new Date(`${date}T00:00:00.000Z`),
+      status: { not: 'cancelled' },
+    },
+  });
+}
+
 // ¿Qué? Agenda una cita de grooming para el cliente autenticado (RF-009).
 // ¿Para qué? Aplica, en orden, todas las reglas de negocio del RF antes de insertar.
 export async function createAppointment(
@@ -92,6 +107,12 @@ export async function createAppointment(
   const service = await db.service.findUnique({ where: { id: data.serviceId } });
   if (!service || !service.active) {
     throw new NotFoundError('Servicio no encontrado o inactivo.');
+  }
+
+  // ¿Qué? Tope diario de citas — evita agendar si ese día ya está lleno.
+  const booked = await countBookedAppointments(data.date);
+  if (booked >= DAILY_APPOINTMENT_CAPACITY) {
+    throw new BadRequestError('Ya no quedan cupos disponibles para esa fecha. Elige otro día.');
   }
 
   // RN-098: el precio se calcula según la mascota (tamaño, pelo, condiciones de piel) y se
@@ -137,6 +158,35 @@ export async function quoteAppointment(
   }
 
   return calculatePrice(serviceId, petId);
+}
+
+export interface AvailabilityDay {
+  date: string;
+  booked: number;
+}
+
+export interface Availability {
+  capacity: number;
+  days: AvailabilityDay[];
+}
+
+// ¿Qué? Cupos ocupados por día dentro de un rango de fechas (RF-009).
+// ¿Para qué? El cliente ve, antes de elegir fecha, qué días ya están llenos — solo se
+//   devuelven los días CON al menos una cita; el frontend asume 0 para los que no aparecen.
+export async function getAvailability(from: string, to: string): Promise<Availability> {
+  const grouped = await db.appointment.groupBy({
+    by: ['date'],
+    where: {
+      date: { gte: new Date(`${from}T00:00:00.000Z`), lte: new Date(`${to}T00:00:00.000Z`) },
+      status: { not: 'cancelled' },
+    },
+    _count: { _all: true },
+  });
+
+  return {
+    capacity: DAILY_APPOINTMENT_CAPACITY,
+    days: grouped.map((g) => ({ date: toDateOnly(g.date), booked: g._count._all })),
+  };
 }
 
 // ¿Qué? Lista las citas del cliente autenticado, más recientes primero.

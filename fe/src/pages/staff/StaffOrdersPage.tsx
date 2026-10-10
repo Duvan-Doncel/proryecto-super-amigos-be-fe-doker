@@ -22,6 +22,9 @@ import { usePagination } from '@/hooks/usePagination';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { FilterBar } from '@/components/ui/FilterBar';
+import { InputField } from '@/components/ui/InputField';
+import { rowNumber } from '@/utils/tablePaging';
 import { useToast } from '@/hooks/useToast';
 
 export function StaffOrdersPage() {
@@ -45,7 +48,16 @@ export function StaffOrdersPage() {
   }, []);
 
   const porCobrar = useMemo(() => orders.reduce((s, o) => s + o.total, 0), [orders]);
-  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(orders, 8);
+
+  const [search, setSearch] = useState('');
+  const hasActiveFilters = search.trim() !== '';
+  const filteredOrders = useMemo(() => {
+    if (!search.trim()) return orders;
+    const q = search.trim().toLowerCase();
+    return orders.filter((o) => `${o.client.firstName} ${o.client.lastName}`.toLowerCase().includes(q));
+  }, [orders, search]);
+
+  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(filteredOrders, 8);
 
   const changeStatus = async (id: string, status: 'completed' | 'cancelled') => {
     setBusyId(id);
@@ -79,12 +91,22 @@ export function StaffOrdersPage() {
         <EmptyState icon={<ClipboardList className="h-6 w-6" />} title="No hay pedidos pendientes" description="Los pedidos que confirmen los clientes aparecerán aquí." />
       ) : (
         <>
+          <FilterBar onClear={() => setSearch('')} hasActiveFilters={hasActiveFilters}>
+            <div className="w-64">
+              <InputField id="order-client-search" label="Buscar por cliente" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre del cliente" />
+            </div>
+          </FilterBar>
+
+          {total === 0 && <EmptyState icon={<ClipboardList className="h-6 w-6" />} title="Sin resultados con estos filtros" />}
+
+          {total > 0 && (
           <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {pageItems.map((o) => (
+            {pageItems.map((o, i) => (
               <Card key={o.id} padded={false}>
                 <div className="p-4 text-sm">
                   <div className="mb-2 flex items-center justify-between">
                     <span className="font-medium text-text">
+                      <span className="mr-1 text-text-muted">#{rowNumber(page, pageSize, i)}</span>
                       {o.client.firstName} {o.client.lastName}
                       {o.client.phone ? <span className="text-text-muted"> · {o.client.phone}</span> : null}
                     </span>
@@ -114,6 +136,8 @@ export function StaffOrdersPage() {
               </Card>
             ))}
           </ul>
+          )}
+          {total > 0 && (
           <Pagination
             page={page}
             pageCount={pageCount}
@@ -123,6 +147,7 @@ export function StaffOrdersPage() {
             onPageSizeChange={setPageSize}
             itemNoun="pedidos"
           />
+          )}
         </>
       )}
 

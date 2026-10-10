@@ -12,6 +12,7 @@ type ClientsApiResponse = ApiResponse<ClientSummary[]> & { meta: ClientsMeta };
 
 interface ListClientsParams {
   q?: string;
+  hasPets?: 'true' | 'false';
   page?: number;
   limit?: number;
 }

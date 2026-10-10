@@ -7,7 +7,8 @@
  *   las rutas. Un error aquí afecta a toda la aplicación.
  */
 
-import express, { type Application, type Request, type Response } from 'express';
+import path from 'node:path';
+import express, { type Application, type Request, type Response, type NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
@@ -49,6 +50,19 @@ app.use(cors({
 // ¿Qué? Parsing de body JSON en todos los requests.
 // ¿Para qué? Express necesita este middleware para leer req.body en POST/PUT.
 app.use(express.json());
+
+// ¿Qué? Sirve las fotos de mascota subidas a disco (ver middlewares/upload.middleware.ts).
+// ¿Para qué? El frontend (otro origen: localhost:5173) las carga en <img src>. Por defecto
+//   helmet marca todo como same-origin (Cross-Origin-Resource-Policy) — se relaja SOLO para
+//   esta ruta de estáticos, nunca para el resto de la API.
+app.use(
+  '/uploads',
+  (_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(path.join(process.cwd(), 'uploads')),
+);
 
 // ¿Qué? Rate limiting en endpoints de autenticación.
 // ¿Para qué? Prevenir ataques de fuerza bruta en login, registro y recuperación.

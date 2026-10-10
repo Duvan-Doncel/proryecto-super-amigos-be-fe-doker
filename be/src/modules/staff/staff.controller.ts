@@ -33,8 +33,8 @@ export async function createStaff(
 //   y limit llegan como number con defaults aplicados.
 export async function searchClients(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { q, page, limit } = req.validatedQuery as ListClientsQuery;
-    const { data, ...meta } = await usersService.listClients({ search: q, page, limit });
+    const { q, hasPets, page, limit } = req.validatedQuery as ListClientsQuery;
+    const { data, ...meta } = await usersService.listClients({ search: q, hasPets, page, limit });
     res.status(200).json({ success: true, data, meta });
   } catch (err) {
     next(err);

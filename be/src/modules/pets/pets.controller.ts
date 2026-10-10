@@ -7,7 +7,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as petsService from './pets.service.js';
-import type { CreatePetInput, UpdatePetInput } from './pets.schema.js';
+import type { CreateMyPetInput, CreatePetInput, UpdatePetInput } from './pets.schema.js';
 import { ValidationError } from '../../middlewares/error.middleware.js';
 
 const clientIdQuerySchema = z.string().uuid();
@@ -56,6 +56,62 @@ export async function listPetsForClient(
     }
     const pets = await petsService.listPetsByClient(parsed.data);
     res.status(200).json({ success: true, data: pets });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ¿Qué? El cliente registra su propia mascota — el dueño sale del token, nunca del body.
+export async function createMyPet(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const pet = await petsService.createPet({
+      ...(req.body as CreateMyPetInput),
+      clientId: req.user!.id,
+    });
+    res.status(201).json({ success: true, data: pet });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ¿Qué? El cliente edita una mascota propia — se verifica dueño antes de tocarla.
+export async function updateMyPet(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const petId = req.params.id as string;
+    await petsService.assertPetBelongsToClient(petId, req.user!.id);
+    const pet = await petsService.updatePet(petId, req.body as UpdatePetInput);
+    res.status(200).json({ success: true, data: pet });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ¿Qué? El cliente elimina una mascota propia — se verifica dueño antes de borrarla.
+export async function deleteMyPet(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const petId = req.params.id as string;
+    await petsService.assertPetBelongsToClient(petId, req.user!.id);
+    await petsService.deletePet(petId);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ¿Qué? Sube o reemplaza la foto de una mascota. El staff puede subirla para cualquiera;
+//   un cliente solo para una mascota propia (mismo chequeo que editar/eliminar).
+export async function uploadPhoto(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.file) {
+      throw new ValidationError('Debes adjuntar una foto (campo "photo").');
+    }
+    const petId = req.params.id as string;
+    if (req.user!.role === 'client') {
+      await petsService.assertPetBelongsToClient(petId, req.user!.id);
+    }
+    const photoUrl = `/uploads/pets/${req.file.filename}`;
+    const pet = await petsService.setPetPhoto(petId, photoUrl);
+    res.status(200).json({ success: true, data: pet });
   } catch (err) {
     next(err);
   }

@@ -20,6 +20,9 @@ import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { FilterBar } from '@/components/ui/FilterBar';
+import { SelectField } from '@/components/ui/SelectField';
+import { rowNumber } from '@/utils/tablePaging';
 
 export function StaffClientsPage() {
   const [clients, setClients] = useState<ClientSummary[]>([]);
@@ -28,6 +31,7 @@ export function StaffClientsPage() {
   const [pageSize, setPageSize] = useState(10);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [hasPets, setHasPets] = useState<'' | 'true' | 'false'>('');
   const [isLoading, setIsLoading] = useState(true);
   const [selected, setSelected] = useState<ClientSummary | null>(null);
 
@@ -38,7 +42,7 @@ export function StaffClientsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
     staffApi
-      .listClients({ page, limit: pageSize, q: search || undefined })
+      .listClients({ page, limit: pageSize, q: search || undefined, hasPets: hasPets || undefined })
       .then((r) => {
         if (!active) return;
         setClients(r.clients);
@@ -50,7 +54,15 @@ export function StaffClientsPage() {
     return () => {
       active = false;
     };
-  }, [page, pageSize, search]);
+  }, [page, pageSize, search, hasPets]);
+
+  const hasActiveFilters = search !== '' || hasPets !== '';
+  const clearFilters = () => {
+    setSearchInput('');
+    setSearch('');
+    setHasPets('');
+    setPage(1);
+  };
 
   const totalPets = useMemo(() => clients.reduce((n, c) => n + (c.petCount ?? 0), 0), [clients]);
 
@@ -73,26 +85,44 @@ export function StaffClientsPage() {
         <StatCard label="Mascotas (en esta página)" value={totalPets} icon={<PawPrint className="h-4 w-4" />} accent="accent" />
       </div>
 
-      <form onSubmit={onSearch} className="mb-4 flex max-w-md gap-2">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Buscar por nombre, correo o documento…"
-            maxLength={100}
-            className="focus-ring w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-text"
-          />
+      <FilterBar onClear={clearFilters} hasActiveFilters={hasActiveFilters}>
+        <form onSubmit={onSearch} className="flex gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Buscar por nombre, correo o documento…"
+              maxLength={100}
+              className="focus-ring w-64 rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-text"
+            />
+          </div>
+          <Button type="submit" variant="secondary" className="px-4 text-sm">
+            Buscar
+          </Button>
+        </form>
+        <div className="w-44">
+          <SelectField
+            id="has-pets-filter"
+            label="Mascotas"
+            value={hasPets}
+            onChange={(e) => {
+              setHasPets(e.target.value as '' | 'true' | 'false');
+              setPage(1);
+            }}
+          >
+            <option value="">Todos</option>
+            <option value="true">Con mascotas</option>
+            <option value="false">Sin mascotas</option>
+          </SelectField>
         </div>
-        <Button type="submit" variant="secondary" className="px-4 text-sm">
-          Buscar
-        </Button>
-      </form>
+      </FilterBar>
 
       <DataTable
         head={
           <>
+            <th>#</th>
             <th>Cliente</th>
             <th>Contacto</th>
             <th>Documento</th>
@@ -103,10 +133,11 @@ export function StaffClientsPage() {
         }
         isLoading={isLoading}
         isEmpty={!isLoading && clients.length === 0}
-        emptyTitle={search ? `Sin resultados para "${search}"` : 'Aún no hay clientes'}
+        emptyTitle={hasActiveFilters ? 'Sin resultados con estos filtros' : 'Aún no hay clientes'}
       >
-        {clients.map((c) => (
+        {clients.map((c, i) => (
           <tr key={c.id}>
+            <td className="text-text-muted">{rowNumber(meta?.page ?? page, pageSize, i)}</td>
             <td className="font-medium text-text">
               {c.firstName} {c.lastName}
             </td>

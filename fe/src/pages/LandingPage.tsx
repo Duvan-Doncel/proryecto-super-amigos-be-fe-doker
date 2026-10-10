@@ -20,6 +20,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowRight,
+  Tag,
+  ClipboardList,
+  Clock,
 } from 'lucide-react';
 import { useAuthModal } from '@/hooks/useAuthModal';
 import { Button } from '@/components/ui/Button';
@@ -38,6 +41,15 @@ const SERVICE_CARDS = [
   { icon: Scissors, name: 'Peluquería / Corte', match: /corte|peluquer|estilo/i, desc: 'Corte de raza o a tu gusto, arreglo de cara, patas y sanitario.' },
   { icon: Stethoscope, name: 'Revisión de síntomas leves', match: null, desc: 'Nuestra auxiliar en veterinaria revisa síntomas leves y te orienta.' },
   { icon: ShoppingBag, name: 'Tienda para mascotas', match: null, desc: 'Juguetes, accesorios y productos de cuidado, listos para recoger.' },
+];
+
+// ¿Qué? Diferenciadores frente a agendar "por WhatsApp" o llevar la mascota sin cita —
+//   la razón concreta para elegir Super Amigos y no solo cualquier peluquería.
+const WHY_US = [
+  { icon: Tag, title: 'Precio claro antes de agendar', text: 'Ves el estimado exacto según tu mascota — talla, pelaje y condiciones — antes de confirmar. Sin sorpresas al recoger.' },
+  { icon: ClipboardList, title: 'Ficha de cuidado por mascota', text: 'Cada mascota tiene su historial: peso, pelaje, condiciones de piel y comportamiento, siempre a mano para el equipo que la atiende.' },
+  { icon: Stethoscope, title: 'Auxiliar en veterinaria disponible', text: 'Si notas un síntoma leve, lo reportas desde la app y te orientamos — sin necesidad de llevarla en persona para una duda simple.' },
+  { icon: Clock, title: 'Agenda en minutos, paga al recoger', text: 'Reserva tu horario en línea las 24 horas. Confirmamos la cita y pagas presencialmente cuando recoges a tu consentido.' },
 ];
 
 const STEPS = [
@@ -87,7 +99,7 @@ export function LandingPage() {
   };
 
   return (
-    <div className="bg-bg">
+    <div className="bg-bg pb-16 sm:pb-0">
       {/* ─── Hero ─── */}
       <section className="relative overflow-hidden">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
@@ -101,8 +113,8 @@ export function LandingPage() {
               <span className="text-[color:var(--color-primary)]">como nueva</span>.
             </h1>
             <p className="mt-4 max-w-xl text-base text-text-muted">
-              Agenda su baño, spa o corte en línea, sigue su ficha de cuidado y compra sus
-              productos favoritos — todo desde un solo lugar. Atención cercana, con cita previa.
+              Agenda su baño, spa o corte en línea, mira el precio antes de confirmar y sigue
+              su ficha de cuidado — todo desde un solo lugar. Atención cercana, con cita previa.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Button onClick={() => openAuthModal('register')}>
@@ -116,7 +128,11 @@ export function LandingPage() {
                 Ver servicios
               </a>
             </div>
-            <p className="mt-4 text-xs text-text-muted">
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-text-muted">
+              <ShieldCheck className="h-3.5 w-3.5 text-[color:var(--color-success)]" aria-hidden="true" />
+              Cuenta gratis, sin letra pequeña — pagas al recoger a tu mascota.
+            </p>
+            <p className="mt-2 text-xs text-text-muted">
               ¿Ya tienes cuenta?{' '}
               <button
                 type="button"
@@ -190,6 +206,29 @@ export function LandingPage() {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* ─── Por qué elegirnos ─── */}
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-display text-3xl font-extrabold text-text">Por qué elegirnos</h2>
+          <p className="mt-2 text-sm text-text-muted">
+            No somos solo una peluquería más — así cuidamos a tu mascota de principio a fin.
+          </p>
+        </div>
+        <div className="mt-10 grid gap-5 sm:grid-cols-2">
+          {WHY_US.map(({ icon: Icon, title, text }) => (
+            <div key={title} className="flex gap-4 rounded-2xl border border-border bg-surface p-5">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[color:var(--color-success)]/10 text-[color:var(--color-success)]">
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="font-display font-bold text-text">{title}</p>
+                <p className="mt-1 text-sm text-text-muted">{text}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -283,6 +322,17 @@ export function LandingPage() {
           </button>
         </div>
       </section>
+
+      {/* ─── CTA fija — solo móvil ─── */}
+      {/* ¿Qué? En pantallas largas, el hero y el CTA final quedan lejos del pulgar del
+         usuario mientras hace scroll. Esta barra mantiene "Crear cuenta" siempre a mano
+         en móvil; se oculta desde `sm:` porque ahí el CTA del hero ya es visible sin scroll. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 p-3 backdrop-blur sm:hidden">
+        <Button className="w-full justify-center" onClick={() => openAuthModal('register')}>
+          Crear cuenta gratis
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </div>
 
       {/* ─── Lightbox ─── */}
       {lightbox !== null && (

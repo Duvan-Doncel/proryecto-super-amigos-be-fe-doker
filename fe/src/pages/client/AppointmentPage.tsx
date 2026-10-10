@@ -7,14 +7,14 @@
  *   deja agendar y se deriva al reporte de síntoma (RF-010).
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as petsApi from '@/api/pets';
 import * as servicesApi from '@/api/services';
 import * as appointmentsApi from '@/api/appointments';
 import type { Pet } from '@/types/pets';
 import type { Service } from '@/types/services';
-import type { Appointment } from '@/types/appointments';
+import type { Appointment, Availability } from '@/types/appointments';
 import type { PriceBreakdown } from '@/types/pricing';
 import { formatCOP } from '@/types/pricing';
 import { Button } from '@/components/ui/Button';
@@ -23,6 +23,7 @@ import { InputField } from '@/components/ui/InputField';
 import { Alert } from '@/components/ui/Alert';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Pagination } from '@/components/ui/Pagination';
+import { MonthCalendar } from '@/components/calendar/MonthCalendar';
 
 const CITAS_PAGE_SIZE = 8;
 
@@ -51,6 +52,7 @@ export function AppointmentPage() {
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [citasPage, setCitasPage] = useState(1);
+  const [availability, setAvailability] = useState<Availability | null>(null);
 
   // ¿Qué? Citas más recientes primero — la lista es corta pero se pagina por consistencia.
   const sortedAppointments = [...appointments].sort((a, b) =>
@@ -95,11 +97,49 @@ export function AppointmentPage() {
     setError(null);
   };
 
+  // ¿Qué? Trae los cupos ocupados del mes que quedó visible en el calendario — se dispara
+  //   también al montar (MonthCalendar llama a onMonthChange una vez al abrir).
+  const loadAvailability = (year: number, month: number) => {
+    const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const to = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    appointmentsApi.getAvailability(from, to).then(setAvailability).catch(() => setAvailability(null));
+  };
+
+  const bookedByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const d of availability?.days ?? []) map[d.date] = d.booked;
+    return map;
+  }, [availability]);
+
+  const capacity = availability?.capacity ?? null;
+
+  const fullDates = useMemo(() => {
+    if (capacity == null) return new Set<string>();
+    return new Set(Object.entries(bookedByDate).filter(([, booked]) => booked >= capacity).map(([date]) => date));
+  }, [bookedByDate, capacity]);
+
+  const selectedDateBooked = formData.date ? (bookedByDate[formData.date] ?? 0) : 0;
+  const selectedDateRemaining = capacity != null ? Math.max(0, capacity - selectedDateBooked) : null;
+
+  const setDate = (date: string) => {
+    setFormData((prev) => ({ ...prev, date }));
+    setError(null);
+  };
+
   const blocked = quote?.blocked ?? false;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (blocked) return;
+    if (!formData.date) {
+      setError('Elige una fecha en el calendario.');
+      return;
+    }
+    if (selectedDateRemaining === 0) {
+      setError('Ese día ya no tiene cupos disponibles. Elige otro.');
+      return;
+    }
     setIsLoading(true);
     setError(null);
     setSuccess(false);
@@ -219,16 +259,29 @@ export function AppointmentPage() {
           </div>
         )}
 
-        <InputField
-          id="date"
-          name="date"
-          label="Fecha"
-          type="date"
-          required
-          min={tomorrowIso()}
-          value={formData.date}
-          onChange={handleChange}
-        />
+        <div>
+          <p className="mb-1.5 text-sm font-medium text-text">Fecha</p>
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <MonthCalendar
+              eventDates={bookedByDate}
+              selectedDate={formData.date || null}
+              onSelectDate={setDate}
+              disabledDates={fullDates}
+              minDate={tomorrowIso()}
+              onMonthChange={loadAvailability}
+            />
+            <p className="mt-3 text-xs text-text-muted">
+              Los días tachados ya están al tope de citas del día. Puedes agendar desde mañana.
+            </p>
+            {formData.date && selectedDateRemaining != null && (
+              <p className="mt-1 text-xs font-medium text-[color:var(--color-primary)]">
+                {selectedDateRemaining > 0
+                  ? `Quedan ${selectedDateRemaining} cupo(s) para el ${formData.date}.`
+                  : `Sin cupos para el ${formData.date} — elige otro día.`}
+              </p>
+            )}
+          </div>
+        </div>
 
         <InputField
           id="time"
@@ -243,7 +296,11 @@ export function AppointmentPage() {
         />
 
         <div className="flex justify-end pt-2">
-          <Button type="submit" isLoading={isLoading} disabled={blocked}>
+          <Button
+            type="submit"
+            isLoading={isLoading}
+            disabled={blocked || !formData.date || selectedDateRemaining === 0}
+          >
             Agendar cita 🐾
           </Button>
         </div>

@@ -20,6 +20,9 @@ import { InputField } from '@/components/ui/InputField';
 import { Alert } from '@/components/ui/Alert';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { FilterBar } from '@/components/ui/FilterBar';
+import { SelectField } from '@/components/ui/SelectField';
+import { rowNumber } from '@/utils/tablePaging';
 import { useToast } from '@/hooks/useToast';
 
 interface FormData {
@@ -54,7 +57,24 @@ export function StaffSuppliersPage() {
   }, []);
 
   const active = useMemo(() => suppliers.filter((s) => s.active).length, [suppliers]);
-  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(suppliers, 10);
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'' | 'active' | 'inactive'>('');
+  const hasActiveFilters = search !== '' || statusFilter !== '';
+
+  const filtered = useMemo(() => {
+    return suppliers.filter((s) => {
+      if (statusFilter === 'active' && !s.active) return false;
+      if (statusFilter === 'inactive' && s.active) return false;
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        if (![s.name, s.contactName, s.email].filter(Boolean).some((v) => v!.toLowerCase().includes(q))) return false;
+      }
+      return true;
+    });
+  }, [suppliers, search, statusFilter]);
+
+  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(filtered, 10);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -124,14 +144,34 @@ export function StaffSuppliersPage() {
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <StatCard label="Proveedores (total)" value={total} icon={<Boxes className="h-4 w-4" />} accent="brand" />
+        <StatCard label="Proveedores (total)" value={suppliers.length} icon={<Boxes className="h-4 w-4" />} accent="brand" />
         <StatCard label="Activos" value={active} accent="success" />
-        <StatCard label="Inactivos" value={total - active} accent="neutral" />
+        <StatCard label="Inactivos" value={suppliers.length - active} accent="neutral" />
       </div>
+
+      <FilterBar
+        onClear={() => {
+          setSearch('');
+          setStatusFilter('');
+        }}
+        hasActiveFilters={hasActiveFilters}
+      >
+        <div className="w-56">
+          <InputField id="supplier-search" label="Buscar" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre, contacto o email" />
+        </div>
+        <div className="w-40">
+          <SelectField id="supplier-status" label="Estado" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as '' | 'active' | 'inactive')}>
+            <option value="">Todos</option>
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
+          </SelectField>
+        </div>
+      </FilterBar>
 
       <DataTable
         head={
           <>
+            <th>#</th>
             <th>Proveedor</th>
             <th>Contacto</th>
             <th>Estado</th>
@@ -139,12 +179,13 @@ export function StaffSuppliersPage() {
           </>
         }
         isLoading={isLoading}
-        isEmpty={!isLoading && suppliers.length === 0}
-        emptyTitle="Todavía no hay proveedores"
-        emptyAction={<Button onClick={() => setFormOpen(true)}>Crear el primero</Button>}
+        isEmpty={!isLoading && total === 0}
+        emptyTitle={hasActiveFilters ? 'Sin resultados con estos filtros' : 'Todavía no hay proveedores'}
+        emptyAction={!hasActiveFilters ? <Button onClick={() => setFormOpen(true)}>Crear el primero</Button> : undefined}
       >
-        {pageItems.map((s) => (
+        {pageItems.map((s, i) => (
           <tr key={s.id} className={s.active ? '' : 'opacity-60'}>
+            <td className="text-text-muted">{rowNumber(page, pageSize, i)}</td>
             <td className="font-medium text-text">{s.name}</td>
             <td className="text-text-muted">
               {[s.contactName, s.phone, s.email].filter(Boolean).join(' · ') || '—'}

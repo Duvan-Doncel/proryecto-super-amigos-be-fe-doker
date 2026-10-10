@@ -24,6 +24,7 @@ import { BreedCombobox } from '@/components/ui/BreedCombobox';
 import { Alert } from '@/components/ui/Alert';
 import { DOG_BREEDS } from '@/data/dogBreeds';
 import { CAT_BREEDS } from '@/data/catBreeds';
+import { rowNumber } from '@/utils/tablePaging';
 
 const SPECIES_OPTIONS: { value: PetSpecies; label: string }[] = [
   { value: 'canina', label: 'Canina' },
@@ -505,11 +506,12 @@ export function StaffPetsPage() {
             ) : (
               <>
               <ul className="space-y-2">
-              {petsPage.pageItems.map((p) => (
+              {petsPage.pageItems.map((p, i) => (
                 <li key={p.id} className="rounded-lg border border-border px-4 py-3 text-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p>
+                        <span className="mr-1 text-text-muted">#{rowNumber(petsPage.page, petsPage.pageSize, i)}</span>
                         <span className="font-medium text-text">{p.name}</span>
                         <span className="text-text-muted">
                           {' '}— {SPECIES_OPTIONS.find((opt) => opt.value === p.species)?.label ?? p.species}

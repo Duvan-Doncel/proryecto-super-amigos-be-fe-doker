@@ -50,6 +50,8 @@ export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 //   paginados; el buscador de mascotas sigue usando el mismo endpoint con `q`.
 export const listClientsQuerySchema = z.object({
   q: z.string().trim().min(2, 'Escribe al menos 2 caracteres para buscar.').max(100).optional(),
+  // ¿Qué? Filtro avanzado: solo clientes con al menos una mascota registrada, o sin ninguna.
+  hasPets: z.enum(['true', 'false']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });

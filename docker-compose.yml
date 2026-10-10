@@ -57,6 +57,10 @@ services:
       FRONTEND_URL: http://localhost:5173
     ports:
       - "3000:3000"
+    volumes:
+      # ¿Qué? Las fotos de mascota se guardan en disco (be/uploads) — sin este volumen,
+      #   se perderían cada vez que se reconstruye la imagen del contenedor.
+      - ./be/uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy

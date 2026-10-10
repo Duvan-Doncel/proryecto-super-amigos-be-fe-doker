@@ -5,8 +5,9 @@
 
 import { Router, type IRouter } from 'express';
 import { authenticate, requireRole } from '../../middlewares/auth.middleware.js';
-import { validate } from '../../middlewares/validate.middleware.js';
+import { validate, validateQuery } from '../../middlewares/validate.middleware.js';
 import {
+  availabilityQuerySchema,
   createAppointmentSchema,
   quoteAppointmentSchema,
   updateAppointmentStatusSchema,
@@ -35,6 +36,15 @@ router.post(
 
 // GET /api/v1/appointments/me — citas del cliente autenticado
 router.get('/me', authenticate, requireRole('client'), appointmentsController.listMine);
+
+// GET /api/v1/appointments/availability?from=&to= — cupos ocupados por día (RF-009, solo cliente)
+router.get(
+  '/availability',
+  authenticate,
+  requireRole('client'),
+  validateQuery(availabilityQuerySchema),
+  appointmentsController.availability,
+);
 
 // PUT /api/v1/appointments/:id — cambia el estado de una cita (RF-017, solo staff)
 router.put(

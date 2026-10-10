@@ -37,6 +37,8 @@ export const listProductsQuerySchema = z.object({
   // ¿Qué? Solo la usa /products/staff (incluir inactivos) — zod descarta claves no declaradas
   //   del query, así que debe listarse aquí aunque el listado público la ignore.
   active: z.enum(['true', 'false']).optional(),
+  // ¿Qué? Filtro avanzado del panel de staff: solo productos con stock bajo.
+  lowStock: z.enum(['true']).optional(),
 });
 
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;

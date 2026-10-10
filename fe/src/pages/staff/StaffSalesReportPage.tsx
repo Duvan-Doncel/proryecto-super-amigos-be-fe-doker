@@ -19,6 +19,7 @@ import { usePagination } from '@/hooks/usePagination';
 import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { BarChart } from '@/components/charts/BarChart';
+import { rowNumber } from '@/utils/tablePaging';
 import { useToast } from '@/hooks/useToast';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -88,6 +89,7 @@ export function StaffSalesReportPage() {
             <DataTable
               head={
                 <>
+                  <th>#</th>
                   <th>Producto</th>
                   <th>Unidades</th>
                   <th className="text-right">Ingresos</th>
@@ -96,8 +98,9 @@ export function StaffSalesReportPage() {
               isEmpty={byProduct.length === 0}
               emptyTitle="No hay ventas en este rango de fechas"
             >
-              {pageItems.map((p) => (
+              {pageItems.map((p, i) => (
                 <tr key={p.productId}>
+                  <td className="text-text-muted">{rowNumber(page, pageSize, i)}</td>
                   <td className="text-text">{p.name}</td>
                   <td className="text-text-muted">{p.unitsSold}</td>
                   <td className="text-right tabular-nums text-text">{formatCOP(p.revenue)}</td>

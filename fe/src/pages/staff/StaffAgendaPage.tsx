@@ -21,6 +21,9 @@ import { Button } from '@/components/ui/Button';
 import { InputField } from '@/components/ui/InputField';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { FilterBar } from '@/components/ui/FilterBar';
+import { SelectField } from '@/components/ui/SelectField';
+import { rowNumber } from '@/utils/tablePaging';
 import { useToast } from '@/hooks/useToast';
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -64,7 +67,13 @@ export function StaffAgendaPage() {
     }),
     [appointments],
   );
-  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(appointments, 12);
+  const [statusFilter, setStatusFilter] = useState<'' | AppointmentStatus>('');
+  const hasActiveFilters = statusFilter !== '';
+  const filteredAppointments = useMemo(
+    () => (statusFilter ? appointments.filter((a) => a.status === statusFilter) : appointments),
+    [appointments, statusFilter],
+  );
+  const { pageItems, page, setPage, pageSize, setPageSize, pageCount, total } = usePagination(filteredAppointments, 12);
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setDate(e.target.value);
@@ -110,8 +119,26 @@ export function StaffAgendaPage() {
         <EmptyState icon={<CalendarDays className="h-6 w-6" />} title="Sin citas para este día" />
       ) : (
         <>
+          <FilterBar
+            onClear={() => setStatusFilter('')}
+            hasActiveFilters={hasActiveFilters}
+          >
+            <div className="w-44">
+              <SelectField id="agenda-status" label="Estado" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as '' | AppointmentStatus)}>
+                <option value="">Todos</option>
+                <option value="pending">Pendiente</option>
+                <option value="confirmed">Confirmada</option>
+                <option value="completed">Completada</option>
+                <option value="cancelled">Cancelada</option>
+              </SelectField>
+            </div>
+          </FilterBar>
+
+          {total === 0 && <EmptyState icon={<CalendarDays className="h-6 w-6" />} title="Sin citas con este filtro" />}
+
+          {total > 0 && (
           <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {pageItems.map((a) => {
+            {pageItems.map((a, i) => {
               const nextStatus = NEXT_STATUS[a.status];
               const isFinal = a.status === 'completed' || a.status === 'cancelled';
               return (
@@ -119,6 +146,7 @@ export function StaffAgendaPage() {
                   <div className="p-4 text-sm">
                     <div className="mb-1 flex items-center justify-between">
                       <span className="font-medium text-text">
+                        <span className="mr-1 text-text-muted">#{rowNumber(page, pageSize, i)}</span>
                         <span className="tabular-nums">{a.time}</span> · {a.service.name}
                       </span>
                       <StatusBadge status={a.status} />
@@ -149,6 +177,8 @@ export function StaffAgendaPage() {
               );
             })}
           </ul>
+          )}
+          {total > 0 && (
           <Pagination
             page={page}
             pageCount={pageCount}
@@ -158,6 +188,7 @@ export function StaffAgendaPage() {
             onPageSizeChange={setPageSize}
             itemNoun="citas"
           />
+          )}
         </>
       )}
 

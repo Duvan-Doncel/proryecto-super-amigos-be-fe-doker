@@ -35,3 +35,11 @@ export const updateAppointmentStatusSchema = z.object({
 });
 
 export type UpdateAppointmentStatusInput = z.infer<typeof updateAppointmentStatusSchema>;
+
+// ¿Qué? Query de GET /api/v1/appointments/availability — rango de fechas a consultar.
+export const availabilityQuerySchema = z.object({
+  from: z.string().regex(DATE_REGEX, 'from debe tener el formato AAAA-MM-DD.'),
+  to: z.string().regex(DATE_REGEX, 'to debe tener el formato AAAA-MM-DD.'),
+});
+
+export type AvailabilityQuery = z.infer<typeof availabilityQuerySchema>;

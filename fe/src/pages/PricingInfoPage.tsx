@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import * as pricingApi from '@/api/pricing';
 import type { PublicPricing, SizeTier } from '@/types/pricing';
 import { SIZE_LABELS, COAT_LABELS, SPECIES_LABELS, formatCOP } from '@/types/pricing';
@@ -48,6 +48,7 @@ function SizeTierTable({ title, tiers }: { title: string; tiers: SizeTier[] }) {
 export function PricingInfoPage() {
   const [data, setData] = useState<PublicPricing | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     pricingApi
@@ -58,9 +59,15 @@ export function PricingInfoPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
-      <Link to="/" className="text-sm text-text-muted hover:underline">
+      {/* ¿Qué? Se llega aquí desde varios sitios (landing, estimador de una cita, footer) —
+         "Volver" debe regresar a ESA página, no siempre al inicio. */}
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="text-sm text-text-muted hover:underline"
+      >
         ← Volver
-      </Link>
+      </button>
 
       <h1 className="text-2xl font-display tracking-wide text-text mt-4 mb-2">
         ✂️ Cómo calculamos el precio

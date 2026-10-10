@@ -189,6 +189,9 @@ model Pet {
   //   el staff escribe "No aplica" en vez de dejarlo vacío — así el reporte de síntomas (RF-018)
   //   y cualquier revisión futura siempre encuentran un valor explícito, no un campo ambiguo.
   pathology String     @default("No aplica") @db.VarChar(300)
+  // ¿Qué? Ruta relativa (bajo /uploads/pets/) de la foto de la mascota. Nula si nunca se subió una.
+  // ¿Para qué? El cliente o el staff pueden subir/reemplazar la foto desde la ficha (RF-012).
+  photoUrl  String?    @map("photo_url") @db.VarChar(300)
   createdAt DateTime   @default(now()) @map("created_at")
 
   client         User               @relation(fields: [clientId], references: [id], onDelete: Cascade)

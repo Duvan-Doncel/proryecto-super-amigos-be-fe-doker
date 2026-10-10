@@ -47,6 +47,7 @@ export interface Pet {
   behavior: PetBehavior | null;
   skinConditions: PetSkinCondition[];
   pathology: string;
+  photoUrl: string | null;
   createdAt: string;
 }
 
@@ -68,3 +69,6 @@ export interface CreatePetRequest {
 
 // ¿Qué? Edición de una mascota — todos los campos opcionales (RF-012).
 export type UpdatePetRequest = Partial<Omit<CreatePetRequest, 'clientId'>>;
+
+// ¿Qué? El cliente registra su PROPIA mascota — sin clientId, sale del token (RF-012).
+export type CreateMyPetRequest = Omit<CreatePetRequest, 'clientId'>;

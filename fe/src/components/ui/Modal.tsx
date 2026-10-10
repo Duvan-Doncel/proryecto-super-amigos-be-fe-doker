@@ -37,6 +37,16 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer }:
   const panelRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
+  // ¿Qué? `onClose` normalmente es un arrow function inline en el caller, así que cambia de
+  //   identidad en cada render del padre (p. ej. al escribir en un campo del formulario). Se
+  //   guarda en un ref para que el efecto de abajo NO dependa de esa identidad — si lo hiciera,
+  //   se re-ejecutaría en cada tecla y volvería a mover el foco al botón de cerrar (el primer
+  //   elemento enfocable del panel), interrumpiendo la escritura.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -45,7 +55,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer }:
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
         return;
       }
       // ¿Qué? Trampa de foco — Tab/Shift+Tab no sale del panel.
@@ -77,7 +87,8 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer }:
       document.body.style.overflow = previousOverflow;
       returnFocusRef.current?.focus?.();
     };
-  }, [isOpen, onClose]);
+    // ¿Qué? Deliberadamente solo `isOpen` — ver el comentario del ref de arriba.
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

@@ -108,6 +108,7 @@ export interface PaginatedClients {
 
 interface ListClientsParams {
   search?: string;
+  hasPets?: 'true' | 'false';
   page: number;
   limit: number;
 }
@@ -116,7 +117,7 @@ interface ListClientsParams {
 // ¿Para qué? La pantalla "Clientes" del panel recorre todos los clientes; el buscador de
 //   mascotas / ventas usa el mismo endpoint pasando `search` y se queda con la 1ª página.
 // ¿Impacto? Nunca devuelve cuentas de staff.
-export async function listClients({ search, page, limit }: ListClientsParams): Promise<PaginatedClients> {
+export async function listClients({ search, hasPets, page, limit }: ListClientsParams): Promise<PaginatedClients> {
   const where = {
     role: 'client' as const,
     ...(search && {
@@ -127,6 +128,8 @@ export async function listClients({ search, page, limit }: ListClientsParams): P
         { lastName: { contains: search, mode: 'insensitive' as const } },
       ],
     }),
+    ...(hasPets === 'true' && { pets: { some: {} } }),
+    ...(hasPets === 'false' && { pets: { none: {} } }),
   };
 
   const [users, total] = await Promise.all([

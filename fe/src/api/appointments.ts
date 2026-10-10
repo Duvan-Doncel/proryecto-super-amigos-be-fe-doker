@@ -9,6 +9,7 @@ import type {
   AgendaAppointment,
   Appointment,
   AppointmentStatus,
+  Availability,
   CreateAppointmentRequest,
 } from '@/types/appointments';
 import type { PriceBreakdown } from '@/types/pricing';
@@ -30,6 +31,15 @@ export async function quoteAppointment(petId: string, serviceId: string): Promis
 
 export async function listMyAppointments(): Promise<Appointment[]> {
   const res = await apiClient.get<ApiResponse<Appointment[]>>('/appointments/me');
+  return res.data.data;
+}
+
+// ¿Qué? Cupos ocupados por día en un rango de fechas (RF-009) — para mostrar disponibilidad
+//   antes de que el cliente elija fecha.
+export async function getAvailability(from: string, to: string): Promise<Availability> {
+  const res = await apiClient.get<ApiResponse<Availability>>('/appointments/availability', {
+    params: { from, to },
+  });
   return res.data.data;
 }
 
