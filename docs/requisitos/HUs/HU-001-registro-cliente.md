@@ -30,6 +30,7 @@
 
 ## Criterios de Aceptación
 
+
 ### CA-001.1 — Formulario de registro completo
 - **Dado que** estoy en la página de registro,
 - **cuando** veo el formulario,
@@ -39,6 +40,8 @@
 - **Dado que** estoy completando el formulario de registro,
 - **cuando** dejo el campo de teléfono vacío y envío el formulario,
 - **entonces** debo ver un mensaje de error: "El teléfono es obligatorio".
+
+
 
 ### CA-001.3 — Validación de contraseña débil
 - **Dado que** estoy completando el formulario de registro,
