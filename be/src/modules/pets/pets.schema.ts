@@ -26,7 +26,9 @@ const skinConditionInput = z.object({
 
 // ¿Qué? Campos comunes al crear y editar una mascota.
 const petFields = {
-  name: z.string().min(1, 'El nombre de la mascota es requerido.').max(100).trim(),
+  // ¿Qué? trim() va ANTES de min(1): si fuera después, "   " pasaba la validación y se
+  //   guardaba una mascota con nombre vacío.
+  name: z.string().trim().min(1, 'El nombre de la mascota es requerido.').max(100),
   species: z.enum(PET_SPECIES, {
     errorMap: () => ({ message: `La especie debe ser una de: ${PET_SPECIES.join(', ')}.` }),
   }),
