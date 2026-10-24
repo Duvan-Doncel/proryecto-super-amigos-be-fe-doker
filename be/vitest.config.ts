@@ -47,7 +47,7 @@ export default defineConfig({
       exclude: ['src/tests/**', 'src/types/**', 'src/**/*.d.ts'],
       // ¿Qué? Umbral mínimo de cobertura exigido por el proyecto (80%).
             thresholds: {
-        lines: 57,
+        lines: 99,
         statements: 56,
         functions: 50,
         branches: 46,
