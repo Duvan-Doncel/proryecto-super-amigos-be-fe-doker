@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import { EMPTY_PET_FORM, petFormToPayload } from '../../components/pets/petForm';
 
 describe('petFormToPayload', () => {
   it('should omit empty optional fields so the backend applies its defaults', () => {
     // Arrange
-    const form = { ...EMPTY_PET_FORM, name: 'Rocky', species: 'DOG' as const };
+    const form = { ...EMPTY_PET_FORM, name: 'Rocky', species: 'canina' as const };
 
     // Act
     const payload = petFormToPayload(form);
