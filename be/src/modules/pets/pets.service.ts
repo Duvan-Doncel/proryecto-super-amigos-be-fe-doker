@@ -8,55 +8,15 @@
 
 import { unlink } from 'node:fs/promises';
 import path from 'node:path';
-import type { Pet, PetSkinCondition } from '@prisma/client';
+import type { Pet } from '@prisma/client';
+import { toPetResponse, type PetResponse } from './pets.mapper.js';
 import { db } from '../../db/index.js';
 import { NotFoundError, ForbiddenError } from '../../middlewares/error.middleware.js';
 import { deriveSizeFromWeight } from '../pricing/pricing.service.js';
 import type { CreatePetInput, UpdatePetInput } from './pets.schema.js';
 
-type PetWithConditions = Pet & { skinConditions: PetSkinCondition[] };
+export type { PetResponse } from './pets.mapper.js';
 
-export interface PetResponse {
-  id: string;
-  clientId: string;
-  name: string;
-  species: string;
-  breed: string | null;
-  gender: string | null;
-  age: number | null;
-  weight: number | null;
-  color: string | null;
-  size: string | null;
-  coatType: string | null;
-  behavior: string | null;
-  skinConditions: { type: string; note: string | null }[];
-  pathology: string;
-  photoUrl: string | null;
-  createdAt: Date;
-}
-
-function toPetResponse(pet: PetWithConditions): PetResponse {
-  return {
-    id: pet.id,
-    clientId: pet.clientId,
-    name: pet.name,
-    species: pet.species,
-    breed: pet.breed,
-    gender: pet.gender,
-    age: pet.age,
-    weight: pet.weight ? Number(pet.weight) : null,
-    color: pet.color,
-    size: pet.size,
-    coatType: pet.coatType,
-    behavior: pet.behavior,
-    skinConditions: pet.skinConditions
-      .map((c) => ({ type: c.type, note: c.note }))
-      .sort((a, b) => a.type.localeCompare(b.type)),
-    pathology: pet.pathology,
-    photoUrl: pet.photoUrl,
-    createdAt: pet.createdAt,
-  };
-}
 
 // ¿Qué? Si el staff no fijó la talla a mano pero registró un peso, se sugiere desde los
 //   tramos de LA ESPECIE (RF-014). Si mandó la talla explícita, esa gana.
