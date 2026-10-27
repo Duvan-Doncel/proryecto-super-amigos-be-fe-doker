@@ -31,12 +31,27 @@ export default defineConfig({
     //   archivo borra los datos que otro está usando → fallos intermitentes.
     fileParallelism: false,
 
-    // ¿Qué? Archivos que se ejecutan antes de cada suite de tests.
-    // ¿Para qué? El setup.ts limpia la BD entre tests para garantizar aislamiento.
-    setupFiles: ['./src/tests/setup.ts'],
-
-    // ¿Qué? Archivos que vitest incluye como tests.
-    include: ['src/**/*.test.ts'],
+        // ¿Qué? Dos proyectos: integración (con BD de tests) y API (BD simulada con vi.mock).
+    // ¿Para qué? El setup.ts limpia la BD real en cada test; los tests de API no deben
+    //   necesitar Docker ni Postgres (semana 4).
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'integracion',
+          include: ['src/**/*.test.ts'],
+          exclude: ['src/tests/api/**'],
+          setupFiles: ['./src/tests/setup.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'api',
+          include: ['src/tests/api/**/*.test.ts'],
+        },
+      },
+    ],
 
     // ¿Qué? Reporte de cobertura usando el provider v8 de Node.js.
     coverage: {
