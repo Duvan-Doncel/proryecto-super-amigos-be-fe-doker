@@ -94,6 +94,28 @@ export function errorHandler(
     return;
   }
 
+  // ¿Qué? Errores conocidos de Prisma que dependen del dato recibido, no de un bug.
+  // ¿Para qué? Un id que no es UUID (P2007/P2023) respondía 500; para el cliente ese recurso
+  //   simplemente no existe. Un duplicado que se cuela por carrera (P2002) es un 409.
+  // ¿Impacto? El mensaje es genérico: nunca se reenvía el detalle de la BD al cliente.
+  if (err.name === 'PrismaClientKnownRequestError') {
+    const code = (err as Error & { code?: string }).code;
+    if (code === 'P2007' || code === 'P2023') {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Recurso no encontrado.' },
+      });
+      return;
+    }
+    if (code === 'P2002') {
+      res.status(409).json({
+        success: false,
+        error: { code: 'CONFLICT', message: 'El registro ya existe.' },
+      });
+      return;
+    }
+  }
+
   // Error no anticipado — loggear sin exponer detalles internos
   console.error('[ERROR]', err);
   res.status(500).json({
