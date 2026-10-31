@@ -10,6 +10,14 @@ import type { Request, Response, NextFunction } from 'express';
 import type { ZodSchema } from 'zod';
 import { ValidationError } from './error.middleware.js';
 
+// ¿Qué? Convierte la lista de errores de zod en un texto legible: "campo: mensaje".
+// ¿Para qué? El frontend (fe/src/api/axios.ts) muestra error.message tal cual en pantalla.
+//   Antes se enviaba JSON.stringify(details) y el usuario veía '[{"field":"name",...}]'.
+// ¿Impacto? Hallazgo de la semana 4 (capa Front); lo fija tests/api/pets.front.api.test.ts.
+function toReadableMessage(details: { field: string; message: string }[]): string {
+  return details.map((d) => (d.field ? `${d.field}: ${d.message}` : d.message)).join(' ');
+}
+
 // ¿Qué? Factory que retorna un middleware de validación para un schema zod dado.
 // ¿Para qué? Usar en rutas: router.post('/register', validate(registerSchema), controller)
 // ¿Impacto? Si el body no cumple el schema, retorna 400 antes de llegar al controller.
@@ -22,7 +30,7 @@ export function validate(schema: ZodSchema) {
         field: e.path.join('.'),
         message: e.message,
       }));
-      next(new ValidationError(JSON.stringify(details)));
+      next(new ValidationError(toReadableMessage(details)));
       return;
     }
 
@@ -45,7 +53,7 @@ export function validateQuery(schema: ZodSchema) {
         field: e.path.join('.'),
         message: e.message,
       }));
-      next(new ValidationError(JSON.stringify(details)));
+      next(new ValidationError(toReadableMessage(details)));
       return;
     }
 
