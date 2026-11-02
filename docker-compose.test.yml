@@ -1,0 +1,21 @@
+# ¿Qué? BD de PRUEBAS desechable para los tests de integración del backend (semana 6).
+# ¿Para qué? Que los tests nunca toquen la BD de desarrollo (groomingspa_db en 5433).
+# ¿Impacto? Mismo motor que desarrollo y CI (postgres:17), otro puerto (5434) y sin volumen.
+# El nombre propio evita que down -v toque los contenedores de desarrollo.
+name: groomingspa-test
+
+services:
+  db_test:
+    image: postgres:17-alpine
+    container_name: groomingspa_db_test
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: groomingspa_test
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d groomingspa_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
