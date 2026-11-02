@@ -83,6 +83,17 @@ export function errorHandler(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _next: NextFunction,
 ): void {
+  // ¿Qué? express.json() marca así el body que no es JSON válido (ej. '{"email":').
+  // ¿Para qué? Antes caía en el 500 genérico; es un error del cliente → 400 con el formato
+  //   de siempre. Hallazgo de la semana 4 (capa E2E), lo fija tests/api/security-errors.api.test.ts.
+  if ((err as Error & { type?: string }).type === 'entity.parse.failed') {
+    res.status(400).json({
+      success: false,
+      error: { code: 'BAD_REQUEST', message: 'El cuerpo de la petición no es un JSON válido.' },
+    });
+    return;
+  }
+
   if (err instanceof AppError) {
     // ¿Qué? success:false mantiene el formato consistente con las respuestas exitosas.
     // ¿Para qué? El cliente siempre puede comprobar res.body.success para saber si
