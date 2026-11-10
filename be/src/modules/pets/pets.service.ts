@@ -13,6 +13,7 @@ import { toPetResponse, type PetResponse } from './pets.mapper.js';
 import { db } from '../../db/index.js';
 import { NotFoundError, ForbiddenError } from '../../middlewares/error.middleware.js';
 import { deriveSizeFromWeight } from '../pricing/pricing.service.js';
+import { isUuid } from '../../utils/ids.js';
 import type { CreatePetInput, UpdatePetInput } from './pets.schema.js';
 
 export type { PetResponse } from './pets.mapper.js';
@@ -131,6 +132,8 @@ export async function listPetsByClient(clientId: string): Promise<PetResponse[]>
 // ¿Impacto? Lanza NotFoundError si no existe, ForbiddenError si es de otro cliente —
 //   así el caller no necesita reimplementar esta verificación.
 export async function assertPetBelongsToClient(petId: string, clientId: string): Promise<Pet> {
+  // Un id que no es UUID no puede existir: 404 en vez de dejar que PostgreSQL falle con 500.
+  if (!isUuid(petId)) throw new NotFoundError('Mascota no encontrada.');
   const pet = await db.pet.findUnique({ where: { id: petId } });
 
   if (!pet) throw new NotFoundError('Mascota no encontrada.');
