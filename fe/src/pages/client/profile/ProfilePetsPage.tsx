@@ -46,8 +46,25 @@ export function ProfilePetsPage() {
   const [toDelete, setToDelete] = useState<Pet | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const loadPets = () => petsApi.listMyPets().then(setPets).catch(() => setPets([]));
+  // ¿Qué? Mensaje cuando la lista no se pudo cargar (API caído, 500, sin red).
+  // ¿Para qué? Antes el error se tragaba con setPets([]) y la pantalla decía "Todavía no tienes
+  //   mascotas registradas": el usuario creía que había perdido sus mascotas.
+  // ¿Impacto? Hallazgo de la semana 5 (E2E con page.route): e2e/tests/mascotas-estados.spec.js.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
+  const loadPets = () =>
+    petsApi
+      .listMyPets()
+      .then((data) => {
+        setLoadError(null);
+        setPets(data);
+      })
+      .catch(() => {
+        setLoadError('No pudimos cargar tus mascotas. Intenta de nuevo en unos minutos.');
+        setPets([]);
+      });
+
+      
   useEffect(() => {
     loadPets();
   }, []);
@@ -128,7 +145,7 @@ export function ProfilePetsPage() {
       setFormOpen(false);
       loadPets();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'No se pudo guardar la mascota.');
+            setFormError(err instanceof Error ? err.message : 'No se pudo guardar la mascota.');
     } finally {
       setSaving(false);
     }
@@ -194,7 +211,9 @@ export function ProfilePetsPage() {
       </FilterBar>
 
       {loading ? (
-        <Skeleton className="h-40 w-full" lines={2} />
+                <Skeleton className="h-40 w-full" lines={2} />
+      ) : loadError ? (
+        <Alert type="error" message={loadError} />
       ) : total === 0 ? (
         <EmptyState
           icon={<PawPrint className="h-6 w-6" />}
