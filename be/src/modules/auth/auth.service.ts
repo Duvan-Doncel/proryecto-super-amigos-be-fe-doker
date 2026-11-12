@@ -290,7 +290,14 @@ export async function requestPasswordReset(data: ForgotPasswordInput): Promise<v
     },
   });
 
-  await sendPasswordResetEmail(user.email, resetToken);
+  // ¿Qué? Si el servidor de correo falla, se registra el error pero se responde igual.
+  // ¿Para qué? Un 500 solo cuando el email existe revelaría qué cuentas están registradas
+  //   (OWASP A07). Hallazgo de la semana 5, lo fija tests/api/email.api.test.ts.
+  try {
+    await sendPasswordResetEmail(user.email, resetToken);
+  } catch (err) {
+    console.error('[EMAIL] No se pudo enviar el correo de recuperación', err);
+  }
   logPasswordResetRequested();
 }
 
