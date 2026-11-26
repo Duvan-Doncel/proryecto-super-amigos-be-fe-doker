@@ -121,6 +121,13 @@ MSW, `page.route`).
 
 ## 6. Roles — rotación de capas
 
+La estrategia sigue el **bootcamp de pruebas de ergrato** (autor de la plantilla base),
+organizado por semanas: cada semana introduce una técnica (valores límite, dobles de prueba —
+mock, stub, spy, fake —, MSW, BD real en Docker, `page.route`…) y cada integrante la aplica en
+una capa distinta. Cada entrega es una rama `test/s<semana>-<capa>-<nombre>` con su PR, revisado
+por alguien de otra capa; el job `evidencia-individual` del CI registra los commits de prueba
+por autor.
+
 Cada semana cada integrante cambia de capa (Front / API / BD / E2E) para que todos pasen por
 las cuatro. El detalle semana a semana y el enlace a cada PR está en
 [`docs/matriz-rotacion.md`](../matriz-rotacion.md).
