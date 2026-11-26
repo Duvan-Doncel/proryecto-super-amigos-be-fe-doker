@@ -387,6 +387,7 @@ plantilla-profesor/
 | [`docs/referencia-tecnica/uml.md`](docs/referencia-tecnica/uml.md) | **Casos de uso** (22) con especificación, **diagramas de clases** (dominio y backend) y **diagramas de estado** |
 | [`docs/referencia-tecnica/api-endpoints.md`](docs/referencia-tecnica/api-endpoints.md) | **API REST completa**: 60 endpoints de los 14 módulos, roles, cuerpos, validaciones y códigos de error |
 | [`docs/pruebas/`](docs/pruebas/) | Plan de pruebas e informe de pruebas |
+| [`docs/scrum.md`](docs/scrum.md) | **Informe de Scrum**: roles, backlog de 23 HUs puntuadas (104 pts), planning poker, 7 sprints, tareas y retrospectiva. Tablero en [GitHub Projects](https://github.com/users/Duvan-Doncel/projects/1) |
 | [`docs/reflexion-backends-y-deuda-tecnica.md`](docs/reflexion-backends-y-deuda-tecnica.md) | **Reflexión comparativa de los 4 backends** del programa (Spring+H2, Spring+MySQL, Express JS, Express TS+Prisma) y **deuda técnica priorizada** (P1–P4) |
 
 ### Otros
