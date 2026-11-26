@@ -1,328 +1,299 @@
-# Esquema de Base de Datos — NN Auth System (Express Edition)
+# Modelo de datos — Super Amigos Grooming Spa (MER y MR)
 
 <!--
-  ¿Qué? Documentación del esquema de base de datos: tablas, columnas, relaciones e índices.
-  ¿Para qué? Servir como referencia para migraciones, revisiones de código y diseño del sistema.
-  ¿Impacto? Cualquier cambio en el esquema debe reflejarse aquí antes de generar la migración con Prisma.
+  ¿Qué? Modelo Entidad-Relación (MER), Modelo Relacional (MR) y diccionario de datos de GroomingSpa.
+  ¿Para qué? Documentar las 22 tablas reales de be/prisma/schema.prisma, sus llaves y relaciones.
+  ¿Impacto? Reemplaza la versión heredada de la plantilla ("NN Auth"), que solo describía users.
+  Cualquier cambio de esquema se hace con una migración de Prisma y se refleja aquí.
 -->
 
-## Tecnologías
-
-| Item | Detalle |
+| Campo | Valor |
 |---|---|
-| Motor | PostgreSQL 17+ |
-| ORM | Prisma ORM |
-| Migraciones | Prisma Migrate |
-| Driver | `@prisma/adapter-pg` sobre `pg` (node-postgres) |
-| UUIDs | `gen_random_uuid()` (función nativa de PostgreSQL) |
+| Motor | PostgreSQL 17 |
+| ORM / migraciones | Prisma 7 (`be/prisma/schema.prisma`, `be/prisma/migrations/` — 9 migraciones) |
+| Llaves primarias | UUID (`gen_random_uuid()`), excepto tablas de reglas (llave natural) |
+| Convención | Modelos en PascalCase (Prisma) → tablas y columnas en snake_case (`@@map`/`@map`) |
 
 ---
 
-## Diagrama Entidad-Relación
+## 1. Modelo Entidad-Relación (MER)
 
+Diagrama en notación *crow's foot* (pata de gallo). `||` = exactamente uno, `o|` = cero o uno,
+`o{` = cero o muchos, `|{` = uno o muchos.
+
+```mermaid
+erDiagram
+    USERS ||--o{ PETS : "es dueño de"
+    USERS ||--o{ APPOINTMENTS : "agenda"
+    USERS ||--o{ SYMPTOM_REPORTS : "reporta"
+    USERS ||--o{ ORDERS : "realiza"
+    USERS ||--o{ PASSWORD_RESET_TOKENS : "solicita"
+    USERS ||--o{ EMAIL_VERIFICATION_TOKENS : "recibe"
+    USERS |o--o{ SALES : "compra (opcional)"
+    USERS ||--o{ SALES : "registra (staff)"
+    USERS |o--o{ PRODUCTS : "crea / actualiza"
+
+    PETS ||--o{ PET_SKIN_CONDITIONS : "presenta"
+    PETS ||--o{ APPOINTMENTS : "recibe"
+    PETS ||--o{ SYMPTOM_REPORTS : "tiene"
+
+    SERVICES ||--o{ APPOINTMENTS : "se presta en"
+    SERVICES ||--o{ SERVICE_SIZE_MODIFIERS : "recargo por tamaño"
+    SERVICES ||--o{ SERVICE_COAT_MODIFIERS : "recargo por pelo"
+
+    PRODUCTS ||--o{ ORDER_ITEMS : "aparece en"
+    PRODUCTS ||--o{ SALE_ITEMS : "aparece en"
+    PRODUCTS ||--o{ SUPPLIER_ORDER_ITEMS : "se reabastece en"
+
+    ORDERS ||--|{ ORDER_ITEMS : "contiene"
+    SALES ||--|{ SALE_ITEMS : "contiene"
+    SUPPLIERS ||--o{ SUPPLIER_ORDERS : "recibe"
+    SUPPLIER_ORDERS ||--|{ SUPPLIER_ORDER_ITEMS : "contiene"
+
+    USERS {
+        uuid id PK
+        varchar document_id UK
+        varchar first_name
+        varchar last_name
+        varchar phone
+        varchar email UK
+        varchar hashed_password
+        enum role "client | staff"
+        boolean is_email_verified
+    }
+    PETS {
+        uuid id PK
+        uuid client_id FK
+        varchar name
+        enum species "canina | felina"
+        varchar breed
+        int age
+        decimal weight
+        enum size
+        enum coat_type
+        enum behavior
+        varchar pathology
+        varchar photo_url
+    }
+    PET_SKIN_CONDITIONS {
+        uuid id PK
+        uuid pet_id FK
+        enum type "UK con pet_id"
+        varchar note
+    }
+    SERVICES {
+        uuid id PK
+        varchar name
+        decimal price
+        int duration_minutes
+        boolean active
+    }
+    SERVICE_SIZE_MODIFIERS {
+        uuid id PK
+        uuid service_id FK
+        enum species
+        enum size
+        decimal amount
+    }
+    SERVICE_COAT_MODIFIERS {
+        uuid id PK
+        uuid service_id FK
+        enum species
+        enum coat_type
+        decimal amount
+    }
+    APPOINTMENTS {
+        uuid id PK
+        uuid client_id FK
+        uuid pet_id FK
+        uuid service_id FK
+        date date
+        varchar time
+        enum status
+        decimal total_price
+        json price_breakdown
+    }
+    SYMPTOM_REPORTS {
+        uuid id PK
+        uuid client_id FK
+        uuid pet_id FK
+        text symptom
+        int days_with_symptom
+        enum status
+        text recommendation
+    }
+    PRODUCTS {
+        uuid id PK
+        varchar name
+        decimal price
+        int stock
+        varchar category
+        boolean active
+        uuid created_by_id FK
+        uuid updated_by_id FK
+    }
+    ORDERS {
+        uuid id PK
+        uuid client_id FK
+        enum status
+        enum payment_status
+        decimal total
+    }
+    ORDER_ITEMS {
+        uuid id PK
+        uuid order_id FK
+        uuid product_id FK
+        int quantity
+        decimal unit_price
+    }
+    SALES {
+        uuid id PK
+        uuid client_id FK "nullable"
+        varchar client_name
+        uuid registered_by_id FK
+        decimal total
+    }
+    SALE_ITEMS {
+        uuid id PK
+        uuid sale_id FK
+        uuid product_id FK
+        int quantity
+        decimal unit_price
+    }
+    SUPPLIERS {
+        uuid id PK
+        varchar name
+        varchar contact_name
+        varchar phone
+        varchar email
+        boolean active
+    }
+    SUPPLIER_ORDERS {
+        uuid id PK
+        uuid supplier_id FK
+        enum status "ordered | received"
+        date expected_date
+        date received_date
+    }
+    SUPPLIER_ORDER_ITEMS {
+        uuid id PK
+        uuid supplier_order_id FK
+        uuid product_id FK
+        int quantity
+        decimal unit_cost
+    }
+    PASSWORD_RESET_TOKENS {
+        uuid id PK
+        uuid user_id FK
+        varchar token UK
+        timestamp expires_at
+        boolean used
+    }
+    EMAIL_VERIFICATION_TOKENS {
+        uuid id PK
+        uuid user_id FK
+        varchar token UK
+        timestamp expires_at
+        boolean used
+    }
 ```
-┌─────────────────────────────────────────────────────┐
-│                       users                         │
-├─────────────────────────────────────────────────────┤
-│ PK  id                UUID         NOT NULL          │
-│     email             VARCHAR(255) NOT NULL UNIQ     │
-│     full_name         VARCHAR(255) NOT NULL          │
-│     hashed_password   VARCHAR(255) NOT NULL          │
-│     is_email_verified BOOLEAN      DEFAULT FALSE     │
-│     locale            VARCHAR(10)  DEFAULT 'es'      │
-│     is_active         BOOLEAN      DEFAULT TRUE      │
-│     created_at        TIMESTAMP    DEFAULT NOW()     │
-│     updated_at        TIMESTAMP    DEFAULT NOW()     │
-└──────────┬─────────────────────────┬────────────────┘
-           │ 1                       │ 1
-           │                         │
-           │ N                       │ N
-┌──────────▼────────────┐  ┌────────▼──────────────────┐
-│  password_reset_tokens│  │  email_verification_tokens │
-├───────────────────────┤  ├────────────────────────────┤
-│ PK id        UUID     │  │ PK id        UUID           │
-│ FK user_id   UUID     │  │ FK user_id   UUID           │
-│    token     VARCHAR  │  │    token     VARCHAR        │
-│    expires_at TIMESTAMP│ │    expires_at TIMESTAMP     │
-│    used      BOOLEAN  │  │    used      BOOLEAN        │
-│    created_at TIMESTAMP│ │    created_at TIMESTAMP     │
-└───────────────────────┘  └────────────────────────────┘
+
+### Tablas de configuración (sin relaciones)
+
+```mermaid
+erDiagram
+    SIZE_TIERS {
+        enum species PK
+        enum size PK
+        varchar label
+        decimal max_weight
+    }
+    SKIN_CONDITION_RULES {
+        enum type PK
+        varchar label
+        decimal amount
+        boolean blocks_booking
+    }
+    BEHAVIOR_RULES {
+        enum behavior PK
+        varchar label
+        decimal amount
+        boolean blocks_booking
+    }
+    SETTINGS {
+        varchar key PK
+        json value
+    }
 ```
+
+Estas tablas alimentan el **motor de precios** (tramos de peso por especie, recargos y bloqueos) y
+la configuración general (`settings` guarda hoy la información de emergencia: búsqueda del mapa y teléfonos).
 
 ---
 
-## Tabla `users`
-
-Almacena los usuarios registrados en el sistema.
-
-```sql
-CREATE TABLE users (
-  id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  email               VARCHAR(255) NOT NULL UNIQUE,
-  full_name           VARCHAR(255) NOT NULL,
-  hashed_password     VARCHAR(255) NOT NULL,
-  is_email_verified   BOOLEAN     NOT NULL DEFAULT FALSE,
-  locale              VARCHAR(10)  NOT NULL DEFAULT 'es',
-  is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
-  created_at          TIMESTAMP   NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMP   NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_users_email ON users(email);
-```
-
-### Columnas
-
-| Columna | Tipo | Restricciones | Descripción |
-|---|---|---|---|
-| `id` | UUID | PK, DEFAULT gen_random_uuid() | Identificador único del usuario |
-| `email` | VARCHAR(255) | NOT NULL, UNIQUE, INDEXED | Email de login — debe ser único en el sistema |
-| `full_name` | VARCHAR(255) | NOT NULL | Nombre completo del usuario |
-| `hashed_password` | VARCHAR(255) | NOT NULL | Hash bcrypt de la contraseña — NUNCA texto plano |
-| `is_email_verified` | BOOLEAN | DEFAULT FALSE | Indica si el email fue verificado. El login requiere `true` |
-| `locale` | VARCHAR(10) | DEFAULT 'es' | Idioma preferido: `"es"` o `"en"` |
-| `is_active` | BOOLEAN | DEFAULT TRUE | Permite desactivar cuentas sin eliminarlas |
-| `created_at` | TIMESTAMP | DEFAULT NOW() | Fecha de registro |
-| `updated_at` | TIMESTAMP | DEFAULT NOW() | Fecha de última modificación |
-
-### Notas de seguridad
-
-- `hashed_password` almacena el hash bcrypt con factor de costo 12
-- El campo `email` tiene índice para búsquedas rápidas durante el login
-- `is_active = FALSE` permite banear usuarios sin perder datos históricos
-- `is_email_verified` actúa como gate del login — `false` retorna HTTP 403
-
----
-
-## Tabla `password_reset_tokens`
-
-Almacena los tokens temporales de recuperación de contraseña. Cada vez que el usuario solicita una recuperación, se genera un nuevo token.
-
-```sql
-CREATE TABLE password_reset_tokens (
-  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  token      VARCHAR(255) NOT NULL UNIQUE,
-  expires_at TIMESTAMP   NOT NULL,
-  used       BOOLEAN     NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMP   NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_password_reset_tokens_token ON password_reset_tokens(token);
-CREATE INDEX idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
-```
-
-### Columnas
-
-| Columna | Tipo | Restricciones | Descripción |
-|---|---|---|---|
-| `id` | UUID | PK, DEFAULT gen_random_uuid() | Identificador único del token |
-| `user_id` | UUID | FK → users.id, ON DELETE CASCADE | Usuario propietario del token |
-| `token` | VARCHAR(255) | NOT NULL, UNIQUE, INDEXED | Valor del token enviado por email |
-| `expires_at` | TIMESTAMP | NOT NULL | Momento de expiración (NOW() + 1 hora) |
-| `used` | BOOLEAN | DEFAULT FALSE | `true` cuando el token ya fue usado |
-| `created_at` | TIMESTAMP | DEFAULT NOW() | Fecha de creación del token |
-
-### Ciclo de vida de un token
-
-```
-1. Usuario solicita forgot-password
-   → Se crea registro: { token: hex64chars, expires_at: NOW()+1h, used: false }
-   → Se envía email con el token
-
-2. Usuario hace clic en enlace y envía nueva contraseña
-   → Se busca token en BD
-   → Se verifica: expires_at > NOW() AND used = false
-   → Se actualiza contraseña del usuario
-   → Se marca: used = true
-
-3. Token expirado o ya usado
-   → Se rechaza con 400
-```
-
-### Política de limpieza
-
-Los tokens expirados pueden eliminarse periódicamente:
-
-```sql
--- Borrar tokens expirados hace más de 7 días
-DELETE FROM password_reset_tokens
-WHERE expires_at < NOW() - INTERVAL '7 days';
-```
-
----
-
-## Tabla `email_verification_tokens`
-
-Almacena los tokens temporales para la verificación de email tras el registro.
-El usuario no puede hacer login hasta que el token sea usado y `users.is_email_verified = true`.
-
-```sql
-CREATE TABLE email_verification_tokens (
-  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  token      VARCHAR(255) NOT NULL UNIQUE,
-  expires_at TIMESTAMP   NOT NULL,
-  used       BOOLEAN     NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMP   NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_email_verification_tokens_token ON email_verification_tokens(token);
-```
-
-### Columnas
-
-| Columna | Tipo | Restricciones | Descripción |
-|---|---|---|---|
-| `id` | UUID | PK, DEFAULT gen_random_uuid() | Identificador único del token |
-| `user_id` | UUID | FK → users.id, ON DELETE CASCADE | Usuario a quien pertenece el token |
-| `token` | VARCHAR(255) | NOT NULL, UNIQUE, INDEXED | Valor del token enviado por email |
-| `expires_at` | TIMESTAMP | NOT NULL | Momento de expiración (NOW() + 24 horas) |
-| `used` | BOOLEAN | DEFAULT FALSE | `true` cuando el token fue usado para activar la cuenta |
-| `created_at` | TIMESTAMP | DEFAULT NOW() | Fecha de creación del token |
-
-### Ciclo de vida
-
-```
-1. Usuario se registra
-   → Se crea usuario con is_email_verified = false
-   → Se crea token: { token: hex64chars, expires_at: NOW()+24h, used: false }
-   → Se envía email con enlace: {FRONTEND_URL}/verify-email?token={token}
-
-2. Usuario hace clic en el enlace
-   → Se busca token en BD
-   → Se verifica: expires_at > NOW() AND used = false
-   → Se actualiza: users.is_email_verified = true
-   → Se marca: used = true
-   → El usuario puede hacer login
-
-3. Token expirado o ya usado
-   → Se rechaza con 400
-```
-
----
-
-## Definición Prisma (`prisma/schema.prisma`)
-
-```prisma
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-}
-
-model User {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email          String   @unique @db.VarChar(255)
-  fullName       String   @map("full_name") @db.VarChar(255)
-  hashedPassword String   @map("hashed_password") @db.VarChar(255)
-  isActive       Boolean  @default(true) @map("is_active")
-  isEmailVerified Boolean @default(false) @map("is_email_verified")
-  locale         String   @default("es") @db.VarChar(10)
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @default(now()) @map("updated_at")
-
-  passwordResetTokens     PasswordResetToken[]
-  emailVerificationTokens EmailVerificationToken[]
-
-  @@map("users")
-}
-
-model PasswordResetToken {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  token     String   @unique @db.VarChar(255)
-  expiresAt DateTime @map("expires_at")
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("password_reset_tokens")
-}
-
-model EmailVerificationToken {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  token     String   @unique @db.VarChar(255)
-  expiresAt DateTime @map("expires_at")
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("email_verification_tokens")
-}
-```
-
-Los nombres de campo van en camelCase (convención TypeScript) y se mapean a las columnas
-snake_case reales vía `@map`/`@@map` — la BD no cambia, solo cambia el ORM que la consulta.
-
----
-
-## Migraciones con Prisma
-
-### Configuración del CLI (`prisma.config.ts`)
-
-Desde Prisma 7, la URL de conexión ya no vive en `schema.prisma` — el CLI la lee de
-`prisma.config.ts`, en la raíz de `be/`:
-
-```typescript
-import 'dotenv/config';
-import { defineConfig, env } from 'prisma/config';
-
-export default defineConfig({
-  schema: 'prisma/schema.prisma',
-  migrations: {
-    path: 'prisma/migrations',
-  },
-  datasource: {
-    url: env('DATABASE_URL'),
-  },
-});
-```
-
-### Comandos
-
-```bash
-# Regenerar el cliente de Prisma (tipos TypeScript) desde el schema
-pnpm db:generate
-
-# Crear + aplicar una migración nueva a partir de un cambio en schema.prisma (desarrollo)
-pnpm db:migrate:dev
-
-# Aplicar migraciones ya existentes sin crear una nueva (CI / producción)
-pnpm db:migrate
-
-# Ver estado de las migraciones
-pnpm db:status
-
-# Abrir Prisma Studio (interfaz visual de la BD)
-pnpm db:studio
-```
-
-### Regla fundamental
-
-> **Nunca alterar la base de datos directamente.** Toda modificación al esquema debe hacerse
-> en `prisma/schema.prisma` y luego generar + aplicar la migración correspondiente con
-> `pnpm db:migrate:dev`.
-
----
-
-## Configuración de Conexión (`src/db/index.ts`)
-
-Prisma 7 requiere un driver adapter explícito — ya no instancia su motor de conexión
-automáticamente a partir de la URL del schema:
-
-```typescript
-import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
-import { config } from '../config.js';
-
-const adapter = new PrismaPg({ connectionString: config.DATABASE_URL });
-
-export const db = new PrismaClient({ adapter });
-export type DB = typeof db;
-```
+## 2. Modelo Relacional (MR)
+
+Notación: **PK** subrayada como `PK`, llaves foráneas como `FK → tabla(columna)`.
+
+| Tabla | Columnas | Llaves y restricciones |
+|---|---|---|
+| **users** | id, document_id, first_name, last_name, phone, email, hashed_password, role, is_email_verified, created_at, updated_at | PK(id) · UK(email) · UK(document_id) |
+| **email_verification_tokens** | id, user_id, token, expires_at, used, created_at | PK(id) · FK user_id → users(id) ON DELETE CASCADE · UK(token) |
+| **password_reset_tokens** | id, user_id, token, expires_at, used, created_at | PK(id) · FK user_id → users(id) ON DELETE CASCADE · UK(token) |
+| **pets** | id, client_id, name, species, breed, gender, age, weight, color, size, coat_type, behavior, pathology, photo_url, created_at | PK(id) · FK client_id → users(id) ON DELETE CASCADE |
+| **pet_skin_conditions** | id, pet_id, type, note, created_at | PK(id) · FK pet_id → pets(id) ON DELETE CASCADE · **UK(pet_id, type)** |
+| **services** | id, name, description, price, duration_minutes, active, created_at | PK(id) |
+| **service_size_modifiers** | id, service_id, species, size, amount | PK(id) · FK service_id → services(id) ON DELETE CASCADE · UK(service_id, species, size) |
+| **service_coat_modifiers** | id, service_id, species, coat_type, amount | PK(id) · FK service_id → services(id) ON DELETE CASCADE · UK(service_id, species, coat_type) |
+| **size_tiers** | species, size, label, max_weight | PK(species, size) |
+| **skin_condition_rules** | type, label, amount, blocks_booking | PK(type) |
+| **behavior_rules** | behavior, label, amount, blocks_booking | PK(behavior) |
+| **appointments** | id, client_id, pet_id, service_id, date, time, status, notes, total_price, price_breakdown, created_at, updated_at | PK(id) · FK client_id → users(id) CASCADE · FK pet_id → pets(id) CASCADE · FK service_id → services(id) |
+| **symptom_reports** | id, client_id, pet_id, symptom, days_with_symptom, notes, status, recommendation, reviewed_at, created_at | PK(id) · FK client_id → users(id) CASCADE · FK pet_id → pets(id) CASCADE |
+| **products** | id, name, description, price, stock, category, active, created_by_id, updated_by_id, created_at, updated_at | PK(id) · FK created_by_id → users(id) · FK updated_by_id → users(id) (ambas opcionales) |
+| **orders** | id, client_id, status, payment_status, total, created_at, updated_at | PK(id) · FK client_id → users(id) CASCADE |
+| **order_items** | id, order_id, product_id, quantity, unit_price | PK(id) · FK order_id → orders(id) CASCADE · FK product_id → products(id) |
+| **suppliers** | id, name, contact_name, phone, email, address, active, created_at | PK(id) |
+| **supplier_orders** | id, supplier_id, status, expected_date, received_date, created_at | PK(id) · FK supplier_id → suppliers(id) |
+| **supplier_order_items** | id, supplier_order_id, product_id, quantity, unit_cost | PK(id) · FK supplier_order_id → supplier_orders(id) CASCADE · FK product_id → products(id) |
+| **sales** | id, client_id, client_name, registered_by_id, status, payment_status, total, created_at | PK(id) · FK client_id → users(id) (nullable) · FK registered_by_id → users(id) |
+| **sale_items** | id, sale_id, product_id, quantity, unit_price | PK(id) · FK sale_id → sales(id) CASCADE · FK product_id → products(id) |
+| **settings** | key, value, updated_at | PK(key) |
+
+### Normalización
+
+- **1FN**: todos los atributos son atómicos; las condiciones de piel de una mascota (multivaluadas)
+  se separaron en `pet_skin_conditions`.
+- **2FN**: las tablas de detalle (`order_items`, `sale_items`, `supplier_order_items`) usan PK
+  propia y guardan solo lo que depende de la línea (cantidad, precio unitario).
+- **3FN**: los recargos no se repiten en cada mascota o cita: viven en tablas de reglas
+  (`skin_condition_rules`, `behavior_rules`, `size_tiers`, modificadores por servicio).
+- **Desnormalización intencional**: `appointments.total_price` / `price_breakdown` y
+  `*_items.unit_price` guardan el precio **en el momento** de la operación, para que un cambio
+  posterior del tarifario no altere el histórico.
+
+## 3. Dominios (enums)
+
+| Enum | Valores |
+|---|---|
+| `UserRole` | client, staff |
+| `PetSpecies` | canina, felina |
+| `PetSize` | pequeno, mediano, grande, gigante |
+| `CoatType` | corto, largo |
+| `PetBehavior` | tranquilo, nervioso, agresivo |
+| `SkinConditionType` | pulgas, garrapatas, piel_irritada, alergia, piel_sensible, nudos, hongos, sarna, heridas, infeccion |
+| `AppointmentStatus` | pending, confirmed, completed, cancelled |
+| `SymptomReportStatus` | pending, reviewed |
+| `OrderStatus` | pending, completed, cancelled |
+| `PaymentStatus` | unpaid, paid |
+| `SupplierOrderStatus` | ordered, received |
+
+## 4. Reglas de borrado (integridad referencial)
+
+| Si se borra… | Se borran en cascada | Se impide el borrado si existen |
+|---|---|---|
+| Un usuario | sus tokens, mascotas, citas, reportes y pedidos (en sus compras de mostrador y productos creados el vínculo queda en NULL) | ventas registradas por él como staff |
+| Una mascota | sus condiciones de piel, citas y reportes | — |
+| Un servicio | sus modificadores | citas que lo usan |
+| Un producto | — | líneas de pedido, venta o pedido a proveedor |
+| Un proveedor | — | pedidos a ese proveedor |

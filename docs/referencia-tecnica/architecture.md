@@ -1,378 +1,196 @@
-# Arquitectura del Sistema — NN Auth System (Express Edition)
+# Arquitectura del sistema — Super Amigos Grooming Spa
 
 <!--
-  ¿Qué? Documento de arquitectura general del sistema.
-  ¿Para qué? Proveer una visión macro de cómo se relacionan las capas, flujos y decisiones técnicas.
-  ¿Impacto? Entender la arquitectura es prerequisito para contribuir correctamente al proyecto.
+  ¿Qué? Diagramas y descripción de la arquitectura de GroomingSpa: contexto, contenedores,
+  capas del backend y del frontend, despliegue, integración continua y un flujo de punta a punta.
+  ¿Para qué? Evidenciar cómo se aplican los patrones vistos en la formación (cliente-servidor,
+  API REST, arquitectura en capas, separación por módulos, contenedores) en ESTE proyecto.
+  ¿Impacto? Reemplaza la versión heredada de la plantilla ("NN Auth"). Los diagramas están en
+  Mermaid: GitHub los dibuja automáticamente al abrir este archivo.
 -->
 
-## 1. Visión General
+## 1. Visión general
 
-NN Auth System es una aplicación web de autenticación construida con arquitectura **cliente-servidor** desacoplada:
+GroomingSpa es una aplicación **cliente-servidor** de tres niveles:
 
-- **Frontend**: React + Vite, se comunica con el backend exclusivamente vía HTTP (REST API)
-- **Backend**: Express.js + TypeScript, expone una API REST versionada
-- **Base de datos**: PostgreSQL 17, accedida exclusivamente a través de Prisma ORM
-- **Email (dev)**: Mailpit captura los emails SMTP localmente para pruebas
+| Nivel | Tecnología | Responsabilidad |
+|---|---|---|
+| Presentación | React 19 + Vite + TypeScript + TailwindCSS (SPA) | Pantallas del cliente (semáforo, tienda, perfil) y del staff (agenda, inventario, ventas) |
+| Lógica de negocio | Node.js 22 + Express 5 + TypeScript (API REST `/api/v1`) | Autenticación JWT, reglas de citas, motor de precios, inventario |
+| Datos | PostgreSQL 17 + Prisma ORM | 22 tablas, migraciones versionadas |
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                     CLIENTE (Browser)                    │
-│            React 18 + Vite + TypeScript                  │
-│                   localhost:5173                         │
-└───────────────────────┬─────────────────────────────────┘
-                        │ HTTP (Axios)
-                        │ Authorization: Bearer <token>
-                        ▼
-┌─────────────────────────────────────────────────────────┐
-│                  BACKEND (Express.js)                    │
-│             Node.js 20 + TypeScript + Prisma             │
-│                   localhost:3000                         │
-│                                                          │
-│  helmet │ cors │ rate-limit │ zod │ jsonwebtoken │ bcrypt │
-│                   audit-log (security events)            │
-└───────────────────────┬─────────────────────────────────┘
-                        │ pg driver (pool)
-                        ▼
-┌─────────────────────────────────────────────────────────┐
-│               BASE DE DATOS (PostgreSQL 17)              │
-│                   localhost:5432                         │
-│  Tablas: users, password_reset_tokens,                   │
-│          email_verification_tokens                       │
-└─────────────────────────────────────────────────────────┘
-                        
-┌─────────────────────────────────────────────────────────┐
-│               EMAIL DEV (Mailpit)                        │
-│         SMTP: localhost:1025 │ UI: localhost:8025        │
-└─────────────────────────────────────────────────────────┘
+Servicios de apoyo: **Mailpit** (SMTP de desarrollo para verificación de correo y recuperación de
+contraseña) y **Google Maps** (veterinarias cercanas en la pantalla de emergencia).
+
+## 2. Diagrama de contexto
+
+```mermaid
+flowchart LR
+    cliente(["👤 Cliente<br/>dueño de mascota"])
+    staff(["🛠️ Staff<br/>groomer / auxiliar / admin"])
+    sag["🐾 Super Amigos<br/>Grooming Spa"]
+    mail["✉️ Servidor de correo<br/>(Mailpit en desarrollo)"]
+    maps["🗺️ Google Maps"]
+
+    cliente -- "agenda citas, reporta síntomas,<br/>compra productos" --> sag
+    staff -- "gestiona agenda, tarifas, inventario,<br/>proveedores y ventas" --> sag
+    sag -- "verificación y recuperación<br/>de contraseña" --> mail
+    sag -- "veterinarias cercanas<br/>(emergencia 🔴)" --> maps
 ```
 
----
+## 3. Diagrama de contenedores (despliegue con Docker Compose)
 
-## 2. Arquitectura del Backend — Capas
+```mermaid
+flowchart TB
+    browser["🌐 Navegador<br/>React SPA"]
 
-El backend sigue el patrón **Router → Controller → Service → DB** con responsabilidades claras por capa:
+    subgraph docker["docker-compose.yml · red groomingspa_network"]
+        fe["<b>fe</b> · nginx<br/>build estático de Vite<br/>:5173 → 80"]
+        be["<b>be</b> · Node 22 + Express 5<br/>API REST /api/v1<br/>:3000"]
+        db[("<b>db</b> · PostgreSQL 17<br/>groomingspa_db<br/>:5433 → 5432<br/>volumen groomingspa_data")]
+        mail["<b>mailpit</b><br/>SMTP :1025 · UI :8025"]
+        up[/"./be/uploads (bind mount)<br/>fotos de mascotas"/]
+    end
 
-```
-HTTP Request
-     │
-     ▼
-┌─────────────┐
-│   Router    │  Define rutas y aplica middlewares específicos
-│ (auth.router│  No contiene lógica de negocio
-│      .ts)   │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Controller │  Recibe req/res, extrae datos, llama al service
-│(auth.cont-  │  Retorna respuesta HTTP con status code correcto
-│ roller.ts)  │  NO contiene lógica de negocio
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│   Service   │  Contiene toda la lógica de negocio
-│(auth.serv-  │  Orquesta llamadas a la BD, hashing, JWT, email
-│   ice.ts)   │  Llama a audit-log para registrar eventos
-│             │  Lanza errores tipados ante condiciones inválidas
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  Prisma DB  │  Consultas type-safe a PostgreSQL
-│  (db/index  │  Nunca SQL crudo sin parametrizar
-│      .ts)   │
-└─────────────┘
-
-       │ (paralelo con Service)
-       ▼
-┌─────────────┐
-│  Audit Log  │  Registra eventos de seguridad (OWASP A09)
-│(utils/audit │  LOGIN_SUCCESS, LOGIN_FAILED, EMAIL_VERIFIED,
-│   -log.ts)  │  PASSWORD_CHANGED, PASSWORD_RESET_REQUESTED
-└─────────────┘
+    browser -- "HTTP: HTML/JS/CSS" --> fe
+    browser -- "HTTP JSON + Bearer JWT<br/>(axios)" --> be
+    be -- "Prisma Client (SQL)" --> db
+    be -- "nodemailer (SMTP)" --> mail
+    be --- up
 ```
 
-### 2.1 Middlewares globales (en orden de ejecución)
+> El frontend se sirve como archivos estáticos; el navegador llama **directamente** al API usando
+> `VITE_API_BASE_URL`. El backend solo acepta peticiones del origen configurado en `FRONTEND_URL` (CORS).
 
-| Middleware | Propósito |
+## 4. Arquitectura del backend — capas y módulos
+
+Patrón **en capas por módulo** (*modular monolith*): cada dominio vive en
+`be/src/modules/<modulo>/` con los mismos 4 archivos.
+
+```mermaid
+flowchart TB
+    req(["Petición HTTP"]) --> mw
+
+    subgraph mw["Middlewares globales (app.ts)"]
+        direction LR
+        h["helmet"] --> c["cors"] --> j["express.json"] --> rl["rate-limit<br/>(solo /auth)"]
+    end
+
+    mw --> router
+
+    subgraph modulo["Módulo (ej. appointments/)"]
+        router["<b>*.router.ts</b><br/>ruta + authenticate + requireRole + validate(zod)"]
+        ctrl["<b>*.controller.ts</b><br/>lee req, responde { success, data }"]
+        svc["<b>*.service.ts</b><br/>reglas de negocio"]
+        schema["<b>*.schema.ts</b><br/>schemas zod + tipos"]
+        router --> ctrl --> svc
+        schema -.-> router
+    end
+
+    svc --> prisma["Prisma Client<br/>(db/index.ts)"] --> pg[("PostgreSQL")]
+    svc -. "errores AppError" .-> err["error.middleware.ts<br/>→ { success:false, error:{ code, message } }"]
+```
+
+| Capa | Responsabilidad | No debe |
+|---|---|---|
+| Router | Declarar ruta, autenticación, rol y validación | Tener lógica de negocio |
+| Controller | Traducir HTTP ↔ servicio, elegir código de estado | Acceder a la BD |
+| Service | Reglas de negocio (horario, cupo, precio, stock) | Conocer `req`/`res` |
+| Prisma | Acceso a datos tipado | — |
+
+**Módulos (14)**: `auth`, `users`, `staff`, `pets`, `services`, `pricing`, `appointments`,
+`symptom-reports`, `emergency-info`, `products`, `orders`, `suppliers`, `supplier-orders`, `sales`.
+
+**Transversales** (`be/src/middlewares`, `be/src/utils`): `auth.middleware` (JWT + rol),
+`validate.middleware` (zod), `upload.middleware` (fotos con multer), `error.middleware`,
+`audit-log` (eventos de seguridad), `email` (nodemailer), `security` (bcrypt + JWT),
+`config.ts` (valida variables de entorno al arrancar; si falta una, el proceso termina con mensaje claro).
+
+## 5. Arquitectura del frontend
+
+```mermaid
+flowchart TB
+    main["main.tsx"] --> providers["Providers<br/>ThemeProvider · AuthProvider · ToastProvider · AuthModalProvider"]
+    providers --> app["App.tsx — React Router"]
+
+    app --> pub["Rutas públicas<br/>/ · /login · /register · /precios · /verify-email · legales"]
+    app --> pr1["ProtectedRoute role=client<br/>/app · cita · sintoma · emergencia · tienda · perfil"]
+    app --> pr2["ProtectedRoute role=staff<br/>/staff · agenda · mascotas · clientes · servicios · tarifario ·<br/>productos · pedidos · proveedores · ventas · reporte-ventas"]
+
+    pr1 & pr2 & pub --> pages["pages/ (client, staff)"]
+    pages --> comps["components/ (ui, layout, pets, calendar, charts)"]
+    pages --> api["api/*.ts — un archivo por módulo del backend"]
+    api --> axios["api/axios.ts<br/>interceptor: agrega Bearer y renueva el token con /auth/refresh"]
+    axios --> BE[("API /api/v1")]
+```
+
+- **Estado de sesión**: `AuthContext` guarda el usuario y los tokens; `ProtectedRoute` redirige a
+  `/login` sin sesión, y a `/app` si un cliente intenta entrar a una ruta de staff.
+- **Tipos compartidos**: `fe/src/types/*` replica los DTO del backend (un archivo por módulo).
+- **Tema claro/oscuro**: `ThemeProvider` con variables de Tailwind.
+
+## 6. Flujo de punta a punta — agendar una cita (🟢 semáforo)
+
+```mermaid
+sequenceDiagram
+    actor C as Cliente
+    participant FE as React (AppointmentPage)
+    participant BE as Express /appointments
+    participant S as appointments.service
+    participant P as pricing (motor)
+    participant DB as PostgreSQL
+
+    C->>FE: Elige mascota y servicio
+    FE->>BE: POST /appointments/quote {petId, serviceId}
+    BE->>P: calcular precio
+    P->>DB: servicio, modificadores, reglas
+    P-->>FE: 200 {total, breakdown, blocked}
+    FE-->>C: Muestra precio estimado (o aviso de bloqueo)
+    C->>FE: Elige fecha y hora, confirma
+    FE->>BE: POST /appointments {petId, serviceId, date, time}
+    BE->>BE: authenticate + requireRole(client) + validate(zod)
+    BE->>S: create()
+    S->>S: horario 9–18 · desde mañana · mascota propia
+    S->>DB: contar citas del día (sin canceladas)
+    alt cupo lleno (10) o condición bloqueante
+        S-->>FE: 400 / 409 PET_CONDITION_BLOCKS_BOOKING
+    else OK
+        S->>DB: INSERT appointment (precio congelado)
+        S-->>FE: 201 {success, data}
+        FE-->>C: Cita en "Mis citas" (pendiente)
+    end
+```
+
+## 7. Integración continua
+
+```mermaid
+flowchart LR
+    dev["Rama test/* o feat/*"] -- "push / PR" --> gh["GitHub"]
+    gh --> ci{{"Workflow tests.yml"}}
+    ci --> j1["frontend<br/>pnpm test:coverage"]
+    ci --> j2["backend<br/>Postgres 17 + Mailpit como servicios<br/>migraciones + test:coverage"]
+    ci --> j3["evidencia-individual<br/>commits de test por autor"]
+    j1 & j2 --> ok{"¿verde?"}
+    ok -- sí --> rev["Revisión por otro integrante"] --> main["merge a main"]
+    ok -- no --> dev
+```
+
+## 8. Patrones y decisiones técnicas
+
+| Decisión | Por qué |
 |---|---|
-| `helmet` | Headers de seguridad HTTP |
-| `cors` | Control de orígenes permitidos |
-| `express.json()` | Parsing de body JSON |
-| `rateLimit` | Límite de requests en rutas de auth |
-| `validate` | Validación de body/params con Zod |
-| `auth` | Verificación de JWT (solo rutas protegidas) |
-| `errorHandler` | Captura global de errores — último middleware |
+| API REST versionada (`/api/v1`) | Contrato estable entre FE y BE; permite evolucionar sin romper clientes |
+| Arquitectura en capas por módulo | Cada dominio es independiente y fácil de probar (el service se prueba sin HTTP) |
+| JWT stateless (access 15 min + refresh 7 días) | No requiere sesiones en servidor; el refresh evita pedir login seguido |
+| Prisma ORM | Tipos generados desde el schema, migraciones versionadas, consultas parametrizadas (evita SQL injection). Se migró desde Drizzle por un CVE de SQL injection |
+| Validación con zod en el borde | Ningún dato inválido llega al service; errores 422 legibles para el formulario |
+| Precio congelado en la cita (`priceBreakdown`) | Si el staff cambia el tarifario, las citas ya agendadas conservan su precio |
+| Docker Compose | El proyecto completo se levanta igual en cualquier computador |
+| BD de pruebas separada | Los tests vacían tablas: nunca deben tocar la BD de desarrollo |
 
----
+## 9. Consideraciones para producción
 
-## 3. Arquitectura del Frontend
-
-### 3.1 Estructura de capas
-
-```
-┌──────────────────────────────────────────┐
-│              Páginas (Pages)             │
-│  LandingPage, LoginPage, DashboardPage…  │
-│  Composición de componentes + lógica UI  │
-└──────────────────┬───────────────────────┘
-                   │ usa
-                   ▼
-┌──────────────────────────────────────────┐
-│           Componentes (Components)       │
-│  InputField, Button, Alert, ProtectedRoute│
-│  Reutilizables, sin estado global        │
-└──────────────────┬───────────────────────┘
-                   │ usa
-                   ▼
-┌──────────────────────────────────────────┐
-│         Custom Hooks + Context           │
-│  useAuth() — estado de autenticación     │
-│  AuthContext — provider global           │
-│  useTheme() — dark/light mode            │
-│  i18n (useTranslation) — idioma          │
-└──────────────────┬───────────────────────┘
-                   │ llama
-                   ▼
-┌──────────────────────────────────────────┐
-│            API Layer (api/auth.ts)       │
-│  Funciones Axios por endpoint            │
-│  Maneja headers, tokens, errores HTTP    │
-└──────────────────┬───────────────────────┘
-                   │ HTTP
-                   ▼
-              Backend API
-```
-
-### 3.2 Gestión del estado de autenticación
-
-```
-AuthContext (Provider en App.tsx)
-    │
-    ├── user: UserResponse | null
-    ├── accessToken: string | null
-    ├── isLoading: boolean
-    ├── login(email, password) → Promise<void>
-    ├── register(data) → Promise<void>
-    ├── logout() → void
-    └── refreshToken() → Promise<void>
-    
-useAuth() ← hook que consume AuthContext
-```
-
-### 3.3 Enrutamiento
-
-| Ruta | Componente | Protegida |
-|---|---|---|
-| `/` | `LandingPage` | No |
-| `/login` | `LoginPage` | No |
-| `/register` | `RegisterPage` | No |
-| `/verify-email` | `VerifyEmailPage` | No (*) |
-| `/dashboard` | `DashboardPage` | Sí |
-| `/change-password` | `ChangePasswordPage` | Sí |
-| `/forgot-password` | `ForgotPasswordPage` | No |
-| `/reset-password` | `ResetPasswordPage` | No (**) |
-| `/contacto` | `ContactPage` | No |
-| `/terminos-de-uso` | `TerminosDeUsoPage` | No |
-| `/privacidad` | `PoliticaPrivacidadPage` | No |
-| `/cookies` | `PoliticaCookiesPage` | No |
-
-(*) Requiere `?token=...` en query param para activar la cuenta
-(**) Requiere `?token=...` de reset en query param
-
----
-
-## 4. Flujos de Autenticación — Diagramas de Secuencia
-
-### 4.1 Registro + Verificación de Email
-
-```
-Usuario       Frontend           Backend              BD         Email
-  │               │                  │                 │            │
-  │──[datos]──────▶               │                 │            │
-  │               │──POST /register─▶               │            │
-  │               │                  │──INSERT user──▶ │            │
-  │               │                  │  is_email_verified=false    │
-  │               │                  │──INSERT token─▶ │            │
-  │               │                  │  expires_at=+24h            │
-  │               │                  │─────────────────────────────▶
-  │               │                  │                sendEmail()  │
-  │               │◀─{201, user}──────               │            │
-  │◀──[mensaje:   │                  │                 │            │
-  │   verifica tu │                  │                 │            │
-  │   email]──────│                  │                 │            │
-  │               │                  │                 │            │
-  │──[clic enlace]▶               │                 │            │
-  │               │──POST /verify-───▶               │            │
-  │               │   email {token}  │──UPDATE user──▶ │            │
-  │               │                  │  is_email_verified=true     │
-  │               │                  │──UPDATE token─▶ │            │
-  │               │                  │  used=true                  │
-  │               │◀─{200, success}───               │            │
-  │◀──[redirect   │                  │                 │            │
-  │    to login]──│                  │                 │            │
-```
-
-### 4.2 Login
-
-```
-Usuario       Frontend           Backend              BD
-  │               │                  │                 │
-  │──[email+pass]─▶               │                 │
-  │               │──POST /login──▶               │
-  │               │                  │──SELECT user──▶ │
-  │               │                  │◀──user row─────  │
-  │               │                  │  verify bcrypt  │
-  │               │                  │  check is_email_verified │
-  │               │                  │  sign JWT tokens│
-  │               │                  │  audit: LOGIN_SUCCESS    │
-  │               │◀─{access,refresh}─               │
-  │               │  store en memory │                 │
-  │◀──[redirect]──               │                 │
-```
-
-### 4.3 Request autenticado
-
-```
-Usuario       Frontend           Backend              BD
-  │               │                  │                 │
-  │──[acción]─────▶               │                 │
-  │               │──GET /me──────▶               │
-  │               │  Authorization:  │                 │
-  │               │  Bearer <token>  │                 │
-  │               │                  │  verify JWT     │
-  │               │                  │──SELECT user──▶ │
-  │               │                  │◀──user data────  │
-  │               │◀──{user}──────────               │
-  │◀──[datos]─────               │                 │
-```
-
----
-
-## 5. Seguridad — Capas de Defensa
-
-### 5.1 Capas implementadas
-
-| Capa | Mecanismo | Cobertura |
-|---|---|---|
-| Inputs | Zod validation | Todos los endpoints |
-| Contraseñas | bcryptjs (salt=12) | Registro y cambio de pass |
-| Tokens | JWT HS256 (access 15m + refresh 7d) | Autenticación |
-| Headers HTTP | helmet | Toda la API |
-| CORS | Orígenes explícitos | Toda la API |
-| Rate limiting | express-rate-limit | Endpoints de auth |
-| SQL injection | Prisma ORM (parametrizado) | Toda la BD |
-| Auditoria | audit-log.ts (JSON estructurado) | Eventos de seguridad |
-| Email verification | email_verification_tokens | Previene cuentas falsas |
-
-### 5.2 Módulo de auditoría (`utils/audit-log.ts`)
-
-Registra eventos de seguridad en formato JSON estructurado (OWASP A09):
-
-```typescript
-// Ejemplo de evento de auditoría
-{
-  timestamp: "2026-03-22T10:00:00.000Z",
-  event: "LOGIN_SUCCESS",
-  userId: "550e8400-...",
-  ip: "192.168.1.1"
-}
-```
-
-Eventos registrados:
-- `LOGIN_SUCCESS` — login exitoso
-- `LOGIN_FAILED` — login fallido (email no existe o contraseña incorrecta)
-- `PASSWORD_CHANGED` — cambio de contraseña exitoso
-- `PASSWORD_RESET_REQUESTED` — solicitud de recuperación de contraseña
-- `EMAIL_VERIFIED` — verificación de email exitosa
-- `RATE_LIMIT_HIT` — límite de velocidad alcanzado
-
----
-
-## 6. Modelo de Datos — Resumen
-
-```
-┌──────────────────────────────────┐
-│              users               │
-├──────────────────────────────────┤
-│ id                UUID  PK       │
-│ email             VARCHAR(255) UQ│
-│ full_name         VARCHAR(255)   │
-│ hashed_password   VARCHAR(255)   │
-│ is_email_verified BOOLEAN        │
-│ locale            VARCHAR(10)    │
-│ is_active         BOOLEAN        │
-│ created_at        TIMESTAMP      │
-│ updated_at        TIMESTAMP      │
-└──────┬────────────────┬──────────┘
-       │ 1              │ 1
-       │ N              │ N
-┌──────▼────────┐  ┌───▼──────────────────┐
-│ password_reset│  │ email_verification_  │
-│    _tokens    │  │      tokens          │
-├───────────────┤  ├──────────────────────┤
-│ id  UUID PK   │  │ id        UUID PK    │
-│ user_id FK    │  │ user_id   FK         │
-│ token         │  │ token                │
-│ expires_at    │  │ expires_at           │
-│ used          │  │ used                 │
-│ created_at    │  │ created_at           │
-└───────────────┘  └──────────────────────┘
-```
-
----
-
-## 7. Decisiones Técnicas
-
-### 7.1 ¿Por qué Express.js en lugar de FastAPI?
-
-Este proyecto es la versión Express del mismo sistema implementado con FastAPI en Python. El objetivo educativo es:
-- Aprender el mismo dominio (autenticación) con dos stacks diferentes
-- Comparar los enfoques: decoradores de FastAPI vs middlewares de Express
-- Entender cómo Node.js maneja el I/O asíncrono (event loop vs async/await de Python)
-
-### 7.2 ¿Por qué Prisma ORM y no Drizzle/TypeORM?
-
-| Criterio | Prisma | Drizzle | TypeORM |
-|---|---|---|---|
-| Type safety | ✅ Total (tipos generados) | ✅ Total | ⚠️ Parcial |
-| Migraciones declarativas | ✅ `schema.prisma` + `prisma migrate` | ✅ drizzle-kit | ✅ Sí |
-| Herramientas (Studio, `$transaction`) | ✅ Completas | ⚠️ Más limitadas | ⚠️ Parcial |
-| Curva de aprendizaje | ✅ API declarativa, fácil de leer | ⚠️ Requiere pensar en query-builder | ⚠️ Parcial |
-| SQL crudo cuando hace falta | ✅ `$queryRaw` parametrizado | ✅ Sí | ✅ Sí |
-
-Se migró de Drizzle a Prisma el 2026-08-14 (ver [`AUDITORIA.md`](../../AUDITORIA.md) —
-sección "Auditoría de CVEs"): la versión de Drizzle usada tenía un CVE de SQL injection sin
-parchear (GHSA-gpj5-g38j-94v9). Como beneficio pedagógico adicional, Prisma es el ORM más
-usado en el ecosistema Node.js/TypeScript — mayor transferencia de conocimiento fuera de este
-proyecto que un query-builder menos extendido.
-
-### 7.3 ¿Por qué stateless JWT y no sesiones?
-
-- Simplicidad: no requiere almacenamiento de sesiones en BD
-- Escalabilidad: cualquier instancia del backend puede verificar el token
-- Demostración educativa: implementar el ciclo completo de access + refresh tokens
-
-### 7.4 ¿Por qué verificación de email obligatoria?
-
-- Previene el registro de cuentas con emails ajenos (suplantación)
-- Garantiza que el email es accesible por el usuario (necesario para recuperación de contraseña)
-- Refleja el comportamiento de sistemas de producción reales
-
----
-
-## 8. Consideraciones de Despliegue (referencia)
-
-> Este proyecto es de desarrollo/educativo. Las notas a continuación son orientativas.
-
-| Componente | Opción dev | Opción producción |
-|---|---|---|
-| Backend | `pnpm dev` (tsx watch) | `pnpm build` + `node dist/index.js` |
-| Frontend | `pnpm dev` (Vite HMR) | `pnpm build` → servir `dist/` con Nginx |
-| Base de datos | Docker Compose local | Neon, Supabase, Railway, RDS |
-| Email | Mailpit local | Resend, SendGrid, SES |
-| Variables de entorno | `.env` local | Secrets del proveedor cloud |
-
----
+- Cambiar `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` y credenciales de BD (los de `.env.example` son de ejemplo).
+- Reemplazar Mailpit por un SMTP real (`MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM`).
+- Servir FE y BE detrás de HTTPS; ajustar `FRONTEND_URL` y `VITE_API_BASE_URL` al dominio real.
+- Guardar las fotos de mascotas en almacenamiento persistente (volumen o bucket), no dentro de la imagen.
