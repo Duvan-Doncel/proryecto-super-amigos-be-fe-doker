@@ -58,6 +58,32 @@ y formato de error correctos, **sin tocar nunca la base de datos de desarrollo**
 | **Integración con BD** | Endpoints contra PostgreSQL real de pruebas | Vitest + supertest + Prisma | `be/src/tests/*.test.ts`, `pets.integration.api.test.ts` |
 | **End-to-end (E2E)** | Flujos completos en el navegador (registro, login inválido, crear cita, estados de "Mis mascotas") | Playwright | `e2e/tests/` |
 
+### 3.1 Pirámide de pruebas
+
+El equipo organiza las pruebas según la **pirámide de pruebas** (Mike Cohn): muchas pruebas
+unitarias rápidas en la base, pruebas de integración en el medio y pocas E2E en la cima. La
+rotación semanal de capas ([`matriz-rotacion.md`](../matriz-rotacion.md)) recorre los tres niveles.
+
+```mermaid
+flowchart TB
+    e2e["🔺 E2E — Playwright<br/>flujos completos en el navegador<br/><b>6 casos</b> · capa E2E de la matriz"]
+    int["🟧 Integración — supertest + PostgreSQL / Prisma simulado<br/>contrato del API y persistencia real<br/><b>96 casos</b> · capas API y BD de la matriz"]
+    uni["🟩 Unitarias — Vitest + Testing Library<br/>componentes React, reglas de negocio, schemas<br/><b>68 casos</b> · capa Front + reglas del backend"]
+    e2e --- int --- uni
+```
+
+| Nivel | Velocidad | Costo de mantener | Qué detecta |
+|---|---|---|---|
+| E2E | Lenta (navegador + stack completo) | Alto | Que el usuario realmente puede completar el flujo |
+| Integración | Media (HTTP + BD) | Medio | Errores de contrato, SQL, permisos, códigos HTTP |
+| Unitarias | Muy rápida (ms) | Bajo | Errores de lógica y valores límite |
+
+> **Lectura honesta de la forma**: hoy hay más casos de integración (96) que unitarios (68), así
+> que la forma real se parece más a un **"trofeo de pruebas"** (Kent C. Dodds) que a una pirámide.
+> Fue intencional en el backend: los defectos más graves (500 en vez de 422/404) solo aparecieron
+> contra la BD real. El siguiente paso es extraer más reglas a funciones puras para ensanchar la
+> base unitaria, sobre todo en el frontend (cobertura 10,5 %).
+
 **Técnicas de diseño de casos**: partición de equivalencia (válido / inválido), **valores
 límite** (peso 0, edad 0–100, 9:00 / 18:00, cupo 10, teléfono 6 vs 7 dígitos), tabla de
 decisión por rol (sin token / cliente / staff) y dobles de prueba (mock, stub, spy, fake,
