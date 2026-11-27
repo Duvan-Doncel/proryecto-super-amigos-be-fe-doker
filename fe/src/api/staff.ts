@@ -6,13 +6,21 @@
 
 import { apiClient } from './axios';
 import type { ApiResponse } from '@/types/auth';
-import type { ClientSummary, ClientsMeta, PaginatedClients } from '@/types/staff';
+import type {
+  ClientStatusFilter,
+  ClientStatusResult,
+  ClientSummary,
+  ClientsMeta,
+  PaginatedClients,
+} from '@/types/staff';
 
 type ClientsApiResponse = ApiResponse<ClientSummary[]> & { meta: ClientsMeta };
 
 interface ListClientsParams {
   q?: string;
   hasPets?: 'true' | 'false';
+  // ¿Qué? Por defecto el backend devuelve solo clientes activos.
+  status?: ClientStatusFilter;
   page?: number;
   limit?: number;
 }
@@ -28,4 +36,19 @@ export async function listClients(params: ListClientsParams = {}): Promise<Pagin
 export async function searchClients(q: string): Promise<ClientSummary[]> {
   const { clients } = await listClients({ q, limit: 10 });
   return clients;
+}
+
+// ¿Qué? Da de baja a un cliente (borrado lógico): pierde el acceso, se conserva su historial
+//   y se cancelan sus citas futuras y pedidos pendientes.
+export async function deactivateClient(id: string, reason?: string): Promise<ClientStatusResult> {
+  const res = await apiClient.post<ApiResponse<ClientStatusResult>>(`/staff/clients/${id}/deactivate`, {
+    reason: reason || undefined,
+  });
+  return res.data.data;
+}
+
+// ¿Qué? Devuelve el acceso a un cliente dado de baja.
+export async function reactivateClient(id: string): Promise<ClientStatusResult> {
+  const res = await apiClient.post<ApiResponse<ClientStatusResult>>(`/staff/clients/${id}/reactivate`);
+  return res.data.data;
 }

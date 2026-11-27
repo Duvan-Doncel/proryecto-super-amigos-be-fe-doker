@@ -4,13 +4,15 @@
  * ¿Para qué? Ver de un vistazo quiénes son los clientes, cuántas mascotas tiene cada uno
  *   y desde cuándo, con búsqueda y paginación reales contra el backend. Al abrir un cliente
  *   se ven sus mascotas registradas sin salir de la pantalla.
+ *   También permite DAR DE BAJA a un cliente (y reactivarlo): deja de poder entrar y sale
+ *   de la lista activa, pero su historial se conserva.
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Users, Search, PawPrint, Mail, Phone, IdCard } from 'lucide-react';
+import { Users, Search, PawPrint, Mail, Phone, IdCard, UserX, UserCheck, CalendarX } from 'lucide-react';
 import * as staffApi from '@/api/staff';
 import * as petsApi from '@/api/pets';
-import type { ClientSummary, ClientsMeta } from '@/types/staff';
+import type { ClientStatusFilter, ClientSummary, ClientsMeta } from '@/types/staff';
 import type { Pet } from '@/types/pets';
 import { SPECIES_LABELS } from '@/types/pricing';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -18,11 +20,16 @@ import { StatCard } from '@/components/ui/StatCard';
 import { DataTable } from '@/components/ui/DataTable';
 import { Pagination } from '@/components/ui/Pagination';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { SelectField } from '@/components/ui/SelectField';
 import { rowNumber } from '@/utils/tablePaging';
+import { useToast } from '@/hooks/useToast';
+
+const formatShortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
 
 export function StaffClientsPage() {
   const [clients, setClients] = useState<ClientSummary[]>([]);
@@ -34,6 +41,12 @@ export function StaffClientsPage() {
   const [hasPets, setHasPets] = useState<'' | 'true' | 'false'>('');
   const [isLoading, setIsLoading] = useState(true);
   const [selected, setSelected] = useState<ClientSummary | null>(null);
+  const [status, setStatus] = useState<ClientStatusFilter>('active');
+  // ¿Qué? Cliente al que se le está dando de baja / reactivando (abre el diálogo).
+  const [toDeactivate, setToDeactivate] = useState<ClientSummary | null>(null);
+  const [toReactivate, setToReactivate] = useState<ClientSummary | null>(null);
+  // ¿Qué? Se incrementa para volver a pedir la lista tras una baja o reactivación.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -42,7 +55,7 @@ export function StaffClientsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
     staffApi
-      .listClients({ page, limit: pageSize, q: search || undefined, hasPets: hasPets || undefined })
+      .listClients({ page, limit: pageSize, q: search || undefined, hasPets: hasPets || undefined, status })
       .then((r) => {
         if (!active) return;
         setClients(r.clients);
@@ -54,15 +67,17 @@ export function StaffClientsPage() {
     return () => {
       active = false;
     };
-  }, [page, pageSize, search, hasPets]);
+  }, [page, pageSize, search, hasPets, status, reloadKey]);
 
-  const hasActiveFilters = search !== '' || hasPets !== '';
+  const hasActiveFilters = search !== '' || hasPets !== '' || status !== 'active';
   const clearFilters = () => {
     setSearchInput('');
     setSearch('');
     setHasPets('');
+    setStatus('active');
     setPage(1);
   };
+  const reload = () => setReloadKey((k) => k + 1);
 
   const totalPets = useMemo(() => clients.reduce((n, c) => n + (c.petCount ?? 0), 0), [clients]);
 
@@ -80,7 +95,9 @@ export function StaffClientsPage() {
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <StatCard label="Clientes (total)" value={meta?.total ?? '—'} icon={<Users className="h-4 w-4" />} accent="brand" />
+        <StatCard
+          label={status === 'inactive' ? 'Dados de baja' : status === 'all' ? 'Clientes (todos)' : 'Clientes activos'}
+          value={meta?.total ?? '—'} icon={<Users className="h-4 w-4" />} accent="brand" />
         <StatCard label="En esta página" value={clients.length} icon={<Users className="h-4 w-4" />} accent="neutral" />
         <StatCard label="Mascotas (en esta página)" value={totalPets} icon={<PawPrint className="h-4 w-4" />} accent="accent" />
       </div>
@@ -117,6 +134,21 @@ export function StaffClientsPage() {
             <option value="false">Sin mascotas</option>
           </SelectField>
         </div>
+        <div className="w-44">
+          <SelectField
+            id="status-filter"
+            label="Estado"
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value as ClientStatusFilter);
+              setPage(1);
+            }}
+          >
+            <option value="active">Activos</option>
+            <option value="inactive">Dados de baja</option>
+            <option value="all">Todos</option>
+          </SelectField>
+        </div>
       </FilterBar>
 
       <DataTable
@@ -133,13 +165,25 @@ export function StaffClientsPage() {
         }
         isLoading={isLoading}
         isEmpty={!isLoading && clients.length === 0}
-        emptyTitle={hasActiveFilters ? 'Sin resultados con estos filtros' : 'Aún no hay clientes'}
+        emptyTitle={
+          status === 'inactive' && search === '' && hasPets === ''
+            ? 'No hay clientes dados de baja'
+            : hasActiveFilters
+              ? 'Sin resultados con estos filtros'
+              : 'Aún no hay clientes'
+        }
       >
         {clients.map((c, i) => (
-          <tr key={c.id}>
+          <tr key={c.id} className={c.deactivatedAt ? 'opacity-70' : undefined}>
             <td className="text-text-muted">{rowNumber(meta?.page ?? page, pageSize, i)}</td>
             <td className="font-medium text-text">
               {c.firstName} {c.lastName}
+              {c.deactivatedAt && (
+                <span className="mt-1 flex w-fit items-center gap-1 rounded-full bg-[color:var(--color-accent-soft)] px-2 py-0.5 text-[11px] font-medium text-[color:var(--color-danger)]">
+                  <UserX className="h-3 w-3" aria-hidden="true" />
+                  Dado de baja · {formatShortDate(c.deactivatedAt)}
+                </span>
+              )}
             </td>
             <td className="text-text-muted">
               <span className="block">{c.email}</span>
@@ -158,9 +202,27 @@ export function StaffClientsPage() {
                 : '—'}
             </td>
             <td className="text-right">
-              <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setSelected(c)}>
-                Ver ficha
-              </Button>
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setSelected(c)}>
+                  Ver ficha
+                </Button>
+                {c.deactivatedAt ? (
+                  <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setToReactivate(c)}>
+                    <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                    Reactivar
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    className="px-3 py-1.5 text-xs text-[color:var(--color-danger)]"
+                    onClick={() => setToDeactivate(c)}
+                    aria-label={`Dar de baja a ${c.firstName} ${c.lastName}`}
+                  >
+                    <UserX className="h-3.5 w-3.5" aria-hidden="true" />
+                    Dar de baja
+                  </Button>
+                )}
+              </div>
             </td>
           </tr>
         ))}
@@ -179,7 +241,175 @@ export function StaffClientsPage() {
       )}
 
       <ClientDetailModal client={selected} onClose={() => setSelected(null)} />
+      <DeactivateClientDialog
+        client={toDeactivate}
+        onClose={() => setToDeactivate(null)}
+        onDone={() => {
+          setToDeactivate(null);
+          reload();
+        }}
+      />
+      <ReactivateClientDialog
+        client={toReactivate}
+        onClose={() => setToReactivate(null)}
+        onDone={() => {
+          setToReactivate(null);
+          reload();
+        }}
+      />
     </div>
+  );
+}
+
+// ¿Qué? Diálogo para dar de baja a un cliente, con motivo opcional.
+// ¿Para qué? Explicar antes de confirmar qué pasa (pierde el acceso, se cancelan sus citas
+//   futuras y pedidos pendientes) y qué NO pasa (su historial se conserva).
+function DeactivateClientDialog({
+  client,
+  onClose,
+  onDone,
+}: {
+  client: ClientSummary | null;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { showToast } = useToast();
+  const [reason, setReason] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  // ¿Qué? Mismas reglas que valida el backend (utils/limits.ts → safeText): máx. 300
+  //   caracteres y sin signos < >. Aquí solo se avisa antes de enviar; el backend es quien
+  //   realmente lo impide.
+  const hasForbiddenChars = /[<>]/.test(reason);
+
+  const close = () => {
+    if (isSaving) return;
+    setReason('');
+    onClose();
+  };
+
+  const confirm = async () => {
+    if (!client || hasForbiddenChars) return;
+    setIsSaving(true);
+    try {
+      const r = await staffApi.deactivateClient(client.id, reason.trim());
+      const extras = [
+        r.cancelledAppointments > 0 &&
+          `${r.cancelledAppointments} ${r.cancelledAppointments === 1 ? 'cita cancelada' : 'citas canceladas'}`,
+        r.cancelledOrders > 0 &&
+          `${r.cancelledOrders} ${r.cancelledOrders === 1 ? 'pedido cancelado' : 'pedidos cancelados'}`,
+      ].filter(Boolean);
+      showToast(
+        `${client.firstName} ${client.lastName} fue dado de baja.${extras.length ? ` ${extras.join(' y ')}.` : ''}`,
+        'success',
+      );
+      setReason('');
+      onDone();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'No se pudo dar de baja al cliente.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={client !== null}
+      onClose={close}
+      title={client ? `Dar de baja a ${client.firstName} ${client.lastName}` : ''}
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={close} disabled={isSaving}>
+            Cancelar
+          </Button>
+          <Button variant="danger" isLoading={isSaving} onClick={confirm} disabled={hasForbiddenChars || isSaving}>
+            Dar de baja
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4 text-sm">
+        <ul className="space-y-2 text-text-muted">
+          <li className="flex gap-2">
+            <UserX className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--color-danger)]" aria-hidden="true" />
+            Ya no podrá iniciar sesión y saldrá de la lista de clientes activos.
+          </li>
+          <li className="flex gap-2">
+            <CalendarX className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--color-warning)]" aria-hidden="true" />
+            Se cancelan sus citas de hoy en adelante y sus pedidos pendientes (el stock vuelve al inventario).
+          </li>
+          <li className="flex gap-2">
+            <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--color-success)]" aria-hidden="true" />
+            Su historial se conserva: mascotas, citas pasadas, pedidos y ventas. Puedes reactivarlo después.
+          </li>
+        </ul>
+        <div>
+          <label htmlFor="deactivation-reason" className="mb-1 block font-medium text-text">
+            Motivo <span className="font-normal text-text-muted">(opcional)</span>
+          </label>
+          <textarea
+            id="deactivation-reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            maxLength={300}
+            rows={3}
+            placeholder="Ej.: se mudó de ciudad, pidió cerrar su cuenta…"
+            aria-invalid={hasForbiddenChars}
+            aria-describedby="deactivation-reason-help"
+            className={`focus-ring w-full rounded-lg border bg-surface px-3 py-2 text-sm text-text ${
+              hasForbiddenChars ? 'border-[color:var(--color-danger)]' : 'border-border'
+            }`}
+          />
+          <div id="deactivation-reason-help" className="mt-1 flex justify-between gap-3 text-xs">
+            <span className={hasForbiddenChars ? 'text-[color:var(--color-danger)]' : 'text-text-muted'}>
+              {hasForbiddenChars ? 'No se permiten los signos < ni >.' : 'Máximo 300 caracteres, solo texto.'}
+            </span>
+            <span className="text-text-muted">{reason.length}/300</span>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ¿Qué? Confirmación para devolverle el acceso a un cliente dado de baja.
+function ReactivateClientDialog({
+  client,
+  onClose,
+  onDone,
+}: {
+  client: ClientSummary | null;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { showToast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
+
+  const confirm = async () => {
+    if (!client) return;
+    setIsSaving(true);
+    try {
+      await staffApi.reactivateClient(client.id);
+      showToast(`${client.firstName} ${client.lastName} fue reactivado y ya puede iniciar sesión.`, 'success');
+      onDone();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'No se pudo reactivar al cliente.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <ConfirmDialog
+      isOpen={client !== null}
+      onClose={() => !isSaving && onClose()}
+      onConfirm={confirm}
+      title={client ? `Reactivar a ${client.firstName} ${client.lastName}` : ''}
+      message="Podrá volver a iniciar sesión y aparecerá en la lista de clientes activos. Las citas y pedidos que se cancelaron al darlo de baja no se restauran."
+      confirmLabel="Reactivar"
+      tone="primary"
+      isLoading={isSaving}
+    />
   );
 }
 
@@ -219,6 +449,18 @@ function ClientDetailModal({ client, onClose }: { client: ClientSummary | null; 
               }
             />
           </dl>
+
+          {client.deactivatedAt && (
+            <div className="rounded-xl border border-[color:var(--color-danger)]/25 bg-[color:var(--color-accent-soft)] p-3 text-sm">
+              <p className="flex items-center gap-2 font-medium text-[color:var(--color-danger)]">
+                <UserX className="h-4 w-4" aria-hidden="true" />
+                Dado de baja el {new Date(client.deactivatedAt).toLocaleDateString('es-CO', { dateStyle: 'long' })}
+              </p>
+              <p className="mt-1 text-text">
+                Motivo: {client.deactivationReason ?? <span className="text-text-muted">sin motivo registrado</span>}
+              </p>
+            </div>
+          )}
 
           <div>
             <p className="mb-2 font-display text-sm font-bold text-text">Mascotas registradas</p>
