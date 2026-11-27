@@ -129,17 +129,27 @@ export async function listClients({
   page,
   limit,
 }: ListClientsParams): Promise<PaginatedClients> {
+  // ¿Qué? La búsqueda se parte en palabras y CADA palabra debe aparecer en algún campo
+  //   (nombre, apellido, correo o documento).
+  // ¿Para qué? Antes se buscaba el texto completo en cada campo por separado, así que
+  //   "Alvaro Espejo" no encontraba a nadie (el nombre es "Alvaro" y el apellido "Espejo").
+  //   Ahora cada palabra filtra más: "Alvaro" trae a todos los Alvaro y "Alvaro Espejo" deja
+  //   solo a ese. El orden no importa ("Espejo Alvaro") y sirven palabras parciales.
+  // ¿Impacto? Máximo 5 palabras, para que una búsqueda larga no arme una consulta enorme.
+  const words = (search ?? '').split(/\s+/).filter(Boolean).slice(0, 5);
   const where = {
     role: 'client' as const,
     ...(status === 'active' && { deactivatedAt: null }),
     ...(status === 'inactive' && { deactivatedAt: { not: null } }),
-    ...(search && {
-      OR: [
-        { email: { contains: search, mode: 'insensitive' as const } },
-        { documentId: { contains: search, mode: 'insensitive' as const } },
-        { firstName: { contains: search, mode: 'insensitive' as const } },
-        { lastName: { contains: search, mode: 'insensitive' as const } },
-      ],
+    ...(words.length > 0 && {
+      AND: words.map((word) => ({
+        OR: [
+          { email: { contains: word, mode: 'insensitive' as const } },
+          { documentId: { contains: word, mode: 'insensitive' as const } },
+          { firstName: { contains: word, mode: 'insensitive' as const } },
+          { lastName: { contains: word, mode: 'insensitive' as const } },
+        ],
+      })),
     }),
     ...(hasPets === 'true' && { pets: { some: {} } }),
     ...(hasPets === 'false' && { pets: { none: {} } }),
