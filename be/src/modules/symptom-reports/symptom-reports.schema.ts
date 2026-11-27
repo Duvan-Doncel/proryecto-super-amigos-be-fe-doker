@@ -4,11 +4,16 @@
  */
 
 import { z } from 'zod';
+import { LIMITS } from '../../utils/limits.js';
 
 export const createSymptomReportSchema = z.object({
   petId: z.string().uuid('El petId debe ser un UUID válido.'),
   symptom: z.string().min(3, 'Describe el síntoma con al menos 3 caracteres.').max(500).trim(),
-  daysWithSymptom: z.coerce.number().int().min(1, 'Debe ser al menos 1 día.'),
+  daysWithSymptom: z.coerce
+    .number()
+    .int()
+    .min(1, 'Debe ser al menos 1 día.')
+    .max(LIMITS.maxDaysWithSymptom, `No puede superar ${LIMITS.maxDaysWithSymptom} días.`),
   notes: z.string().max(500).trim().optional(),
 });
 

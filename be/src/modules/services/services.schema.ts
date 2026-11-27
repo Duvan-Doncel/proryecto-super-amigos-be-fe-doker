@@ -5,12 +5,17 @@
  */
 
 import { z } from 'zod';
+import { LIMITS, moneyField } from '../../utils/limits.js';
 
 export const createServiceSchema = z.object({
   name: z.string().min(2, 'El nombre del servicio es requerido.').max(150).trim(),
   description: z.string().max(1000).trim().optional(),
-  price: z.coerce.number().positive('El precio debe ser mayor a 0.'),
-  durationMinutes: z.coerce.number().int().positive('La duración debe ser mayor a 0.'),
+  price: moneyField(),
+  durationMinutes: z.coerce
+    .number()
+    .int()
+    .positive('La duración debe ser mayor a 0.')
+    .max(LIMITS.maxDurationMinutes, `La duración no puede superar ${LIMITS.maxDurationMinutes} minutos.`),
 });
 
 export type CreateServiceInput = z.infer<typeof createServiceSchema>;
@@ -19,8 +24,8 @@ export type CreateServiceInput = z.infer<typeof createServiceSchema>;
 export const updateServiceSchema = z.object({
   name: z.string().min(2).max(150).trim().optional(),
   description: z.string().max(1000).trim().optional(),
-  price: z.coerce.number().positive().optional(),
-  durationMinutes: z.coerce.number().int().positive().optional(),
+  price: moneyField().optional(),
+  durationMinutes: z.coerce.number().int().positive().max(LIMITS.maxDurationMinutes).optional(),
   active: z.boolean().optional(),
 });
 

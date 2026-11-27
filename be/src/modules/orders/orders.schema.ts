@@ -4,16 +4,18 @@
  */
 
 import { z } from 'zod';
+import { LIMITS, quantityField } from '../../utils/limits.js';
 
 export const createOrderSchema = z.object({
   items: z
     .array(
       z.object({
         productId: z.string().uuid('El productId debe ser un UUID válido.'),
-        quantity: z.coerce.number().int().positive('La cantidad debe ser mayor a 0.'),
+        quantity: quantityField(),
       }),
     )
-    .min(1, 'El pedido debe tener al menos un producto.'),
+    .min(1, 'El pedido debe tener al menos un producto.')
+    .max(LIMITS.maxItems, `El pedido no puede tener más de ${LIMITS.maxItems} productos.`),
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;

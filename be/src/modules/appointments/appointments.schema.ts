@@ -6,14 +6,14 @@
  */
 
 import { z } from 'zod';
+import { dateRange, isoDate } from '../../utils/limits.js';
 
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export const createAppointmentSchema = z.object({
   petId: z.string().uuid('El petId debe ser un UUID válido.'),
   serviceId: z.string().uuid('El serviceId debe ser un UUID válido.'),
-  date: z.string().regex(DATE_REGEX, 'La fecha debe tener el formato AAAA-MM-DD.'),
+  date: isoDate(),
   time: z.string().regex(TIME_REGEX, 'La hora debe tener el formato HH:mm.'),
   notes: z.string().max(500).trim().optional(),
 });
@@ -37,9 +37,7 @@ export const updateAppointmentStatusSchema = z.object({
 export type UpdateAppointmentStatusInput = z.infer<typeof updateAppointmentStatusSchema>;
 
 // ¿Qué? Query de GET /api/v1/appointments/availability — rango de fechas a consultar.
-export const availabilityQuerySchema = z.object({
-  from: z.string().regex(DATE_REGEX, 'from debe tener el formato AAAA-MM-DD.'),
-  to: z.string().regex(DATE_REGEX, 'to debe tener el formato AAAA-MM-DD.'),
-});
+// ¿Impacto? Máx. 92 días: la pantalla pide un mes a la vez.
+export const availabilityQuerySchema = dateRange(92);
 
 export type AvailabilityQuery = z.infer<typeof availabilityQuerySchema>;

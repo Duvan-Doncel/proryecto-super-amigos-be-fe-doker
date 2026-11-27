@@ -49,7 +49,9 @@ app.use(cors({
 
 // ¿Qué? Parsing de body JSON en todos los requests.
 // ¿Para qué? Express necesita este middleware para leer req.body en POST/PUT.
-app.use(express.json());
+// ¿Qué? Tope explícito del cuerpo JSON. Ninguna petición legítima de la app pesa más; las
+//   fotos van por multipart con su propio límite de 5 MB (upload.middleware.ts).
+app.use(express.json({ limit: '100kb' }));
 
 // ¿Qué? Sirve las fotos de mascota subidas a disco (ver middlewares/upload.middleware.ts).
 // ¿Para qué? El frontend (otro origen: localhost:5173) las carga en img src. Por defecto

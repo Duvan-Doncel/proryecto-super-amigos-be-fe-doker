@@ -4,7 +4,6 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
 import * as appointmentsService from './appointments.service.js';
 import type {
   AvailabilityQuery,
@@ -13,8 +12,10 @@ import type {
   UpdateAppointmentStatusInput,
 } from './appointments.schema.js';
 import { ValidationError } from '../../middlewares/error.middleware.js';
+import { isoDate } from '../../utils/limits.js';
 
-const dateQuerySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha debe tener el formato AAAA-MM-DD.');
+// ¿Qué? Fecha real del calendario (ver utils/limits.ts → isoDate).
+const dateQuerySchema = isoDate();
 
 // ¿Qué? Calendario del día para el staff (RF-017). `?date=` es opcional — por defecto, hoy.
 export async function agenda(req: Request, res: Response, next: NextFunction): Promise<void> {
