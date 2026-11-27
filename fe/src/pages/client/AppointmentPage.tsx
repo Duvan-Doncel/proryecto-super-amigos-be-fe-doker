@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import * as petsApi from '@/api/pets';
 import * as servicesApi from '@/api/services';
 import * as appointmentsApi from '@/api/appointments';
@@ -24,6 +24,7 @@ import { Alert } from '@/components/ui/Alert';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Pagination } from '@/components/ui/Pagination';
 import { MonthCalendar } from '@/components/calendar/MonthCalendar';
+import { SemaforoLight } from '@/components/ui/SemaforoLight';
 
 const CITAS_PAGE_SIZE = 8;
 
@@ -61,10 +62,22 @@ export function AppointmentPage() {
 
   const loadAppointments = () => appointmentsApi.listMyAppointments().then(setAppointments);
 
+  // ¿Qué? `?mascota=<id>` llega desde el semáforo del inicio ("Agendar spa para Milo").
+  // ¿Para qué? Que la mascota elegida allá ya venga seleccionada aquí, sin escogerla otra vez.
+  // ¿Impacto? Si el id no es de una mascota del cliente, se ignora y el campo queda vacío.
+  const [searchParams] = useSearchParams();
+  const preselectedPetId = searchParams.get('mascota');
+
   useEffect(() => {
-    petsApi.listMyPets().then(setPets);
+    petsApi.listMyPets().then((list) => {
+      setPets(list);
+      if (preselectedPetId && list.some((p) => p.id === preselectedPetId)) {
+        setFormData((prev) => ({ ...prev, petId: preselectedPetId }));
+      }
+    });
     servicesApi.listServices().then(setServices);
     loadAppointments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- carga inicial: solo al montar
   }, []);
 
   // ¿Qué? Al tener mascota + servicio, pide el estimador de precio (RF-014).
@@ -163,8 +176,9 @@ export function AppointmentPage() {
         ← Volver
       </Link>
 
-      <h1 className="text-2xl font-display tracking-wide text-text mt-4 mb-6">
-        🟢 Agendar Cita de Grooming
+      <h1 className="text-2xl font-display tracking-wide text-text mt-4 mb-6 flex items-center gap-3">
+        <SemaforoLight tone="verde" size="md" />
+        Agendar Cita de Grooming
       </h1>
 
       {success && (
@@ -252,9 +266,10 @@ export function AppointmentPage() {
             </p>
             <Link
               to="/app/sintoma"
-              className="mt-3 inline-block text-sm font-medium text-red-800 dark:text-red-300 underline"
+              className="group mt-3 inline-flex items-center gap-2 text-sm font-medium text-red-800 dark:text-red-300 underline"
             >
-              Reportar un síntoma (🟡) →
+              <SemaforoLight tone="amarillo" blink="hover" />
+              Reportar un síntoma →
             </Link>
           </div>
         )}

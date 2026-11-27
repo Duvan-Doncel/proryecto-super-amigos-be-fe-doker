@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import * as emergencyApi from '@/api/emergency';
 import type { EmergencyInfo } from '@/types/emergency';
+import { SemaforoLight } from '@/components/ui/SemaforoLight';
 
 // ¿Qué? Clave de la API de mapas leída de una variable de entorno — nunca hardcodeada
 //   directamente en el componente (RN-113, corrige el hallazgo de seguridad del código anterior).
@@ -27,8 +28,9 @@ export function EmergencyPage() {
         ← Volver
       </Link>
 
-      <h1 className="text-2xl font-display tracking-wide text-text mt-4 mb-1">
-        🔴 Emergencia — Veterinarias Cercanas
+      <h1 className="text-2xl font-display tracking-wide text-text mt-4 mb-1 flex items-center gap-3">
+        <SemaforoLight tone="rojo" size="md" />
+        Emergencia — Veterinarias Cercanas
       </h1>
       <p className="text-sm text-text-muted mb-6">
         GroomingSpa no atiende emergencias médicas. Aquí tienes veterinarias cercanas y

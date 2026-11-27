@@ -16,6 +16,7 @@ import { SelectField } from '@/components/ui/SelectField';
 import { InputField } from '@/components/ui/InputField';
 import { Alert } from '@/components/ui/Alert';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SemaforoLight } from '@/components/ui/SemaforoLight';
 
 interface FormData {
   petId: string;
@@ -71,8 +72,9 @@ export function SymptomReportPage() {
         ← Volver
       </Link>
 
-      <h1 className="text-2xl font-display tracking-wide text-text mt-4 mb-6">
-        🟡 Reportar Síntoma Leve
+      <h1 className="text-2xl font-display tracking-wide text-text mt-4 mb-6 flex items-center gap-3">
+        <SemaforoLight tone="amarillo" size="md" />
+        Reportar Síntoma Leve
       </h1>
 
       {success && (
@@ -110,7 +112,7 @@ export function SymptomReportPage() {
           maxLength={500}
         />
 
-        <InputField
+        <InputField max={365}
           id="daysWithSymptom"
           name="daysWithSymptom"
           label="¿Hace cuántos días?"

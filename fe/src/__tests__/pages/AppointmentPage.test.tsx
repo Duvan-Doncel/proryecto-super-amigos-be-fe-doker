@@ -48,6 +48,23 @@ afterEach(() => {
 });
 
 describe('AppointmentPage', () => {
+  it('preselecciona la mascota que llega en ?mascota= desde el semáforo', async () => {
+    // Arrange + Act
+    renderWithRouter(<AppointmentPage />, { initialEntries: ['/app/cita?mascota=pet-1'] });
+
+    // Assert
+    await waitFor(() => expect(screen.getByLabelText('Mascota')).toHaveValue('pet-1'));
+  });
+
+  it('ignora una ?mascota= que no es del cliente', async () => {
+    // Arrange + Act
+    renderWithRouter(<AppointmentPage />, { initialEntries: ['/app/cita?mascota=otra'] });
+
+    // Assert
+    await screen.findByRole('option', { name: 'Luna' });
+    expect(screen.getByLabelText('Mascota')).toHaveValue('');
+  });
+
   it('muestra las citas del cliente con el nombre de la mascota y del servicio', async () => {
     // Arrange
     vi.mocked(appointmentsApi.listMyAppointments).mockResolvedValue([
