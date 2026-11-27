@@ -116,6 +116,13 @@ model User {
   hashedPassword  String   @map("hashed_password") @db.VarChar(255)
   role            UserRole
   isEmailVerified Boolean  @default(false) @map("is_email_verified")
+  // ¿Qué? Baja del cliente (borrado lógico): fecha en que el staff lo dio de baja y motivo.
+  // ¿Para qué? El cliente deja de poder entrar y sale de la lista activa, pero su historial
+  //   (citas, pedidos, ventas) se conserva — borrar la fila borraría en cascada ese historial
+  //   y alteraría los reportes de ventas de meses pasados.
+  // ¿Impacto? null = cliente activo. Reactivar = volver a poner null.
+  deactivatedAt      DateTime? @map("deactivated_at")
+  deactivationReason String?   @map("deactivation_reason") @db.VarChar(300)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @default(now()) @map("updated_at")
 

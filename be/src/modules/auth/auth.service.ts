@@ -197,6 +197,16 @@ export async function loginUser(data: LoginInput, ip?: string): Promise<LoginRes
     throw new ForbiddenError('Debes verificar tu email antes de iniciar sesión. Revisa tu bandeja de entrada.');
   }
 
+  // ¿Qué? Bloquea el login de una cuenta dada de baja por el staff.
+  // ¿Impacto? Va DESPUÉS de validar la contraseña: así un tercero no puede averiguar, con
+  //   cualquier contraseña, qué correos corresponden a clientes dados de baja.
+  if (user.deactivatedAt) {
+    logLoginFailed('Cuenta dada de baja', ip);
+    throw new ForbiddenError(
+      'Esta cuenta fue dada de baja. Si quieres volver, comunícate con Super Amigos Grooming Spa.',
+    );
+  }
+
   logLoginSuccess(user.id, ip ?? 'unknown');
 
   return {
@@ -229,6 +239,12 @@ export async function refreshTokens(data: RefreshTokenInput): Promise<TokenRespo
 
   if (!user) {
     throw new UnauthorizedError('Usuario no encontrado.');
+  }
+
+  // ¿Qué? Una sesión abierta de un cliente dado de baja no se puede renovar.
+  // ¿Impacto? Su access token vigente (máx. 15 min) expira solo y queda fuera.
+  if (user.deactivatedAt) {
+    throw new UnauthorizedError('La cuenta fue dada de baja.');
   }
 
   return {

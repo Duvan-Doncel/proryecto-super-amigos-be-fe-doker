@@ -9,7 +9,7 @@ import { Router, type IRouter } from 'express';
 import { authenticate, requireRole } from '../../middlewares/auth.middleware.js';
 import { validate, validateQuery } from '../../middlewares/validate.middleware.js';
 import { createStaffSchema } from '../auth/auth.schema.js';
-import { listClientsQuerySchema } from '../users/users.schema.js';
+import { deactivateClientSchema, listClientsQuerySchema } from '../users/users.schema.js';
 import * as staffController from './staff.controller.js';
 
 const router: IRouter = Router();
@@ -32,5 +32,18 @@ router.get(
   validateQuery(listClientsQuerySchema),
   staffController.searchClients,
 );
+
+// POST /api/v1/staff/clients/:id/deactivate — Da de baja a un cliente (borrado lógico)
+// ¿Por qué POST y no DELETE? No se borra nada: el cliente y su historial siguen en la BD.
+router.post(
+  '/clients/:id/deactivate',
+  authenticate,
+  requireRole('staff'),
+  validate(deactivateClientSchema),
+  staffController.deactivateClient,
+);
+
+// POST /api/v1/staff/clients/:id/reactivate — Devuelve el acceso a un cliente dado de baja
+router.post('/clients/:id/reactivate', authenticate, requireRole('staff'), staffController.reactivateClient);
 
 export default router;

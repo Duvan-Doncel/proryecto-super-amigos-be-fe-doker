@@ -5,9 +5,10 @@
  * ¿Impacto? Solo expone datos propios — nunca datos de otros usuarios.
  */
 
+import { z } from 'zod';
 import { db } from '../../db/index.js';
-import { NotFoundError } from '../../middlewares/error.middleware.js';
-import { logProfileUpdated } from '../../utils/audit-log.js';
+import { ConflictError, NotFoundError } from '../../middlewares/error.middleware.js';
+import { logClientDeactivated, logClientReactivated, logProfileUpdated } from '../../utils/audit-log.js';
 import type { UpdateProfileInput } from './users.schema.js';
 
 // ¿Qué? DTO de perfil de usuario — omite hashedPassword.
@@ -96,6 +97,9 @@ export interface ClientSummary {
   phone: string | null;
   createdAt: Date;
   petCount: number;
+  // ¿Qué? Datos de la baja — null si el cliente está activo.
+  deactivatedAt: Date | null;
+  deactivationReason: string | null;
 }
 
 export interface PaginatedClients {
@@ -109,6 +113,7 @@ export interface PaginatedClients {
 interface ListClientsParams {
   search?: string;
   hasPets?: 'true' | 'false';
+  status?: 'active' | 'inactive' | 'all';
   page: number;
   limit: number;
 }
@@ -117,9 +122,17 @@ interface ListClientsParams {
 // ¿Para qué? La pantalla "Clientes" del panel recorre todos los clientes; el buscador de
 //   mascotas / ventas usa el mismo endpoint pasando `search` y se queda con la 1ª página.
 // ¿Impacto? Nunca devuelve cuentas de staff.
-export async function listClients({ search, hasPets, page, limit }: ListClientsParams): Promise<PaginatedClients> {
+export async function listClients({
+  search,
+  hasPets,
+  status = 'active',
+  page,
+  limit,
+}: ListClientsParams): Promise<PaginatedClients> {
   const where = {
     role: 'client' as const,
+    ...(status === 'active' && { deactivatedAt: null }),
+    ...(status === 'inactive' && { deactivatedAt: { not: null } }),
     ...(search && {
       OR: [
         { email: { contains: search, mode: 'insensitive' as const } },
@@ -153,10 +166,112 @@ export async function listClients({ search, hasPets, page, limit }: ListClientsP
       phone: u.phone,
       createdAt: u.createdAt,
       petCount: u._count.pets,
+      deactivatedAt: u.deactivatedAt,
+      deactivationReason: u.deactivationReason,
     })),
     page,
     limit,
     total,
     totalPages: Math.max(1, Math.ceil(total / limit)),
+  };
+}
+
+// ─────────────── Baja y reactivación de clientes ───────────────
+
+export interface ClientStatusResult {
+  id: string;
+  deactivatedAt: Date | null;
+  deactivationReason: string | null;
+  // ¿Qué? Lo que se canceló al dar de baja (0 al reactivar).
+  cancelledAppointments: number;
+  cancelledOrders: number;
+}
+
+// ¿Qué? Busca un CLIENTE por id; si el id no es un UUID o es de un staff, responde 404.
+// ¿Para qué? Un id mal formado haría fallar la consulta con 500, y esta ruta nunca debe
+//   poder dar de baja una cuenta de staff.
+async function findClientOrThrow(clientId: string) {
+  if (!z.string().uuid().safeParse(clientId).success) throw new NotFoundError('Cliente no encontrado.');
+  const user = await db.user.findUnique({ where: { id: clientId } });
+  if (!user || user.role !== 'client') throw new NotFoundError('Cliente no encontrado.');
+  return user;
+}
+
+// ¿Qué? Da de baja a un cliente (borrado lógico).
+// ¿Para qué? El cliente "se fue": ya no puede entrar ni aparece en la lista activa, pero su
+//   historial (citas pasadas, pedidos entregados, ventas) se conserva tal cual.
+// ¿Impacto? En una sola transacción:
+//   1. marca la fecha y el motivo de la baja;
+//   2. cancela sus citas de hoy en adelante que sigan pendientes o confirmadas (liberan cupo);
+//   3. cancela sus pedidos pendientes y devuelve el stock reservado (RN-192).
+//   El login y la renovación de sesión de una cuenta dada de baja se rechazan (auth.service).
+export async function deactivateClient(
+  staffId: string,
+  clientId: string,
+  reason?: string,
+): Promise<ClientStatusResult> {
+  const client = await findClientOrThrow(clientId);
+  if (client.deactivatedAt) throw new ConflictError('Este cliente ya fue dado de baja.');
+
+  const now = new Date();
+  const todayUtc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+
+  const result = await db.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: { id: clientId },
+      data: { deactivatedAt: now, deactivationReason: reason ?? null, updatedAt: now },
+    });
+
+    const appointments = await tx.appointment.updateMany({
+      where: { clientId, date: { gte: todayUtc }, status: { in: ['pending', 'confirmed'] } },
+      data: { status: 'cancelled', updatedAt: now },
+    });
+
+    const pendingOrders = await tx.order.findMany({
+      where: { clientId, status: 'pending' },
+      include: { items: true },
+    });
+    for (const order of pendingOrders) {
+      for (const item of order.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } },
+        });
+      }
+      await tx.order.update({ where: { id: order.id }, data: { status: 'cancelled' } });
+    }
+
+    return {
+      id: updated.id,
+      deactivatedAt: updated.deactivatedAt,
+      deactivationReason: updated.deactivationReason,
+      cancelledAppointments: appointments.count,
+      cancelledOrders: pendingOrders.length,
+    };
+  });
+
+  logClientDeactivated(staffId, clientId);
+  return result;
+}
+
+// ¿Qué? Reactiva a un cliente dado de baja (por error, o porque volvió).
+// ¿Impacto? Solo devuelve el acceso: las citas y pedidos cancelados en la baja no se
+//   restauran — el cliente agenda de nuevo.
+export async function reactivateClient(staffId: string, clientId: string): Promise<ClientStatusResult> {
+  const client = await findClientOrThrow(clientId);
+  if (!client.deactivatedAt) throw new ConflictError('Este cliente ya está activo.');
+
+  const updated = await db.user.update({
+    where: { id: clientId },
+    data: { deactivatedAt: null, deactivationReason: null, updatedAt: new Date() },
+  });
+
+  logClientReactivated(staffId, clientId);
+  return {
+    id: updated.id,
+    deactivatedAt: null,
+    deactivationReason: null,
+    cancelledAppointments: 0,
+    cancelledOrders: 0,
   };
 }
