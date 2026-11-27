@@ -26,6 +26,7 @@ import { InputField } from '@/components/ui/InputField';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { rowNumber } from '@/utils/tablePaging';
 import { useToast } from '@/hooks/useToast';
+import { SemaforoLight } from '@/components/ui/SemaforoLight';
 
 export function StaffSymptomsPage() {
   const { showToast } = useToast();
@@ -80,8 +81,13 @@ export function StaffSymptomsPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <PageHeader
-        title="Reportes de síntomas"
-        description="Reportes leves que dejaron los clientes (🟡). Revisa y responde con una recomendación."
+        title={
+          <span className="flex items-center gap-3">
+            <SemaforoLight tone="amarillo" size="md" />
+            Reportes de síntomas
+          </span>
+        }
+        description="Reportes de síntomas leves (nivel amarillo) que dejaron los clientes. Revisa y responde con una recomendación."
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2">
@@ -106,7 +112,7 @@ export function StaffSymptomsPage() {
         <>
           <FilterBar onClear={() => setSearch('')} hasActiveFilters={hasActiveFilters}>
             <div className="w-64">
-              <InputField id="symptom-search" label="Buscar por cliente o mascota" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Ej: Max" />
+              <InputField maxLength={100} id="symptom-search" label="Buscar por cliente o mascota" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Ej: Max" />
             </div>
           </FilterBar>
 
