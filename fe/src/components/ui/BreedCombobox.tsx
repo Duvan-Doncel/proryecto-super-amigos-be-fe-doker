@@ -121,7 +121,7 @@ export function BreedCombobox({
       </label>
 
       <div className="relative">
-        <input
+        <input maxLength={100}
           id={id}
           name={name}
           type="text"

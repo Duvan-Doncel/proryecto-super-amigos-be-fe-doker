@@ -162,7 +162,7 @@ export function StaffServicesPage() {
         hasActiveFilters={hasActiveFilters}
       >
         <div className="w-56">
-          <InputField id="service-search" label="Buscar por nombre" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Ej: Baño" />
+          <InputField maxLength={100} id="service-search" label="Buscar por nombre" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Ej: Baño" />
         </div>
         <div className="w-40">
           <SelectField id="service-status" label="Estado" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as '' | 'active' | 'inactive')}>
@@ -249,8 +249,8 @@ export function StaffServicesPage() {
           <InputField id="name" name="name" label="Nombre del servicio" required value={formData.name} onChange={handleChange} maxLength={150} placeholder="Ej: Baño y corte" />
           <InputField id="description" name="description" label="Descripción (opcional)" value={formData.description} onChange={handleChange} maxLength={1000} />
           <div className="grid grid-cols-2 gap-4">
-            <InputField id="price" name="price" label="Precio base (COP)" type="number" min={1} required value={formData.price} onChange={handleChange} />
-            <InputField id="durationMinutes" name="durationMinutes" label="Duración (minutos)" type="number" min={1} required value={formData.durationMinutes} onChange={handleChange} />
+            <InputField max={9999999} id="price" name="price" label="Precio base (COP)" type="number" min={1} required value={formData.price} onChange={handleChange} />
+            <InputField max={600} id="durationMinutes" name="durationMinutes" label="Duración (minutos)" type="number" min={1} required value={formData.durationMinutes} onChange={handleChange} />
           </div>
         </form>
       </Modal>

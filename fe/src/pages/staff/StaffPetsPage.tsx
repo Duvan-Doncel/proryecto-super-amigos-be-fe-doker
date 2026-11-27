@@ -325,7 +325,7 @@ export function StaffPetsPage() {
                 options={formData.species === 'canina' ? DOG_BREEDS : CAT_BREEDS}
               />
             ) : (
-              <InputField
+              <InputField maxLength={100}
                 id="breed"
                 name="breed"
                 label="Raza (opcional)"
@@ -347,7 +347,7 @@ export function StaffPetsPage() {
                 <option value="Macho">Macho</option>
                 <option value="Hembra">Hembra</option>
               </SelectField>
-              <InputField
+              <InputField max={100}
                 id="age"
                 name="age"
                 label="Edad en años (opcional)"
@@ -358,7 +358,7 @@ export function StaffPetsPage() {
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <InputField
+              <InputField max={999.99}
                 id="weight"
                 name="weight"
                 label="Peso en kg (opcional)"

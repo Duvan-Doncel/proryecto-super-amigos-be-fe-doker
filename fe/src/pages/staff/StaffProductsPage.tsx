@@ -185,7 +185,7 @@ export function StaffProductsPage() {
 
       <FilterBar onClear={clearFilters} hasActiveFilters={hasActiveFilters}>
         <div className="w-56">
-          <InputField
+          <InputField maxLength={100}
             id="product-search"
             label="Buscar por nombre"
             value={search}
@@ -197,7 +197,7 @@ export function StaffProductsPage() {
           />
         </div>
         <div className="w-44">
-          <InputField
+          <InputField maxLength={50}
             id="product-category"
             label="Categoría"
             value={category}
@@ -322,8 +322,8 @@ export function StaffProductsPage() {
           <InputField id="description" name="description" label="Descripción (opcional)" value={formData.description} onChange={handleChange} maxLength={1000} />
           <InputField id="category" name="category" label="Categoría (opcional)" value={formData.category} onChange={handleChange} maxLength={50} placeholder="Ej: Juguetes, Accesorios" />
           <div className="grid grid-cols-2 gap-4">
-            <InputField id="price" name="price" label="Precio (COP)" type="number" min={1} required value={formData.price} onChange={handleChange} />
-            <InputField id="stock" name="stock" label="Stock inicial" type="number" min={0} value={formData.stock} onChange={handleChange} placeholder="0" />
+            <InputField max={9999999} id="price" name="price" label="Precio (COP)" type="number" min={1} required value={formData.price} onChange={handleChange} />
+            <InputField max={99999} id="stock" name="stock" label="Stock inicial" type="number" min={0} value={formData.stock} onChange={handleChange} placeholder="0" />
           </div>
         </form>
       </Modal>

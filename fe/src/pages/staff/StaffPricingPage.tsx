@@ -21,7 +21,7 @@ const SPECIES_ORDER: PetSpecies[] = ['canina', 'felina'];
 
 function numInput(value: number | null, onChange: (v: number | null) => void, nullable = false) {
   return (
-    <input
+    <input max={999.99}
       type="number"
       min={0}
       step="500"
@@ -222,7 +222,7 @@ function RuleEditor<R extends { label: string; amount: number; blocksBooking: bo
           return (
             <div key={key} className="flex items-center gap-3 text-sm">
               <span className="flex-1 text-text">{r.label}</span>
-              <input
+              <input max={9999999}
                 type="number"
                 min={0}
                 step="500"
@@ -317,7 +317,7 @@ function ServiceModifierEditor({ service, busy, onSave }: EditorProps) {
               {SIZE_ORDER.map((size) => (
                 <label key={size} className="flex items-center justify-between gap-2">
                   <span className="text-text-muted">{SIZE_LABELS[size]}</span>
-                  <input
+                  <input max={9999999}
                     type="number"
                     min={0}
                     step="500"
@@ -330,7 +330,7 @@ function ServiceModifierEditor({ service, busy, onSave }: EditorProps) {
               {COAT_ORDER.map((coat) => (
                 <label key={coat} className="flex items-center justify-between gap-2">
                   <span className="text-text-muted">Pelo {COAT_LABELS[coat].toLowerCase()}</span>
-                  <input
+                  <input max={9999999}
                     type="number"
                     min={0}
                     step="500"

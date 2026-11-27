@@ -71,7 +71,7 @@ export function PetFormFields({ formData, onChange, onBreedChange, onToggleCondi
           options={formData.species === 'canina' ? DOG_BREEDS : CAT_BREEDS}
         />
       ) : (
-        <InputField
+        <InputField maxLength={100}
           id="breed"
           name="breed"
           label="Raza (opcional)"
@@ -88,11 +88,11 @@ export function PetFormFields({ formData, onChange, onBreedChange, onToggleCondi
           <option value="Macho">Macho</option>
           <option value="Hembra">Hembra</option>
         </SelectField>
-        <InputField id="age" name="age" label="Edad en años (opcional)" type="number" min={0} value={formData.age} onChange={onChange} />
+        <InputField max={100} id="age" name="age" label="Edad en años (opcional)" type="number" min={0} value={formData.age} onChange={onChange} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <InputField
+        <InputField max={999.99}
           id="weight"
           name="weight"
           label="Peso en kg (opcional)"

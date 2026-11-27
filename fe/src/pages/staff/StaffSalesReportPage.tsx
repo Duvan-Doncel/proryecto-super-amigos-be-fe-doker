@@ -61,10 +61,10 @@ export function StaffSalesReportPage() {
       <Card className="mb-6">
         <form onSubmit={loadReport} className="flex flex-wrap items-end gap-3">
           <div className="w-40">
-            <InputField id="from" name="from" label="Desde" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <InputField id="from" name="from" label="Desde" type="date" min="2020-01-01" max={to} value={from} onChange={(e) => setFrom(e.target.value)} />
           </div>
           <div className="w-40">
-            <InputField id="to" name="to" label="Hasta" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <InputField id="to" name="to" label="Hasta" type="date" min={from} max="2100-12-31" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
           <Button type="submit" isLoading={isLoading}>Consultar</Button>
         </form>

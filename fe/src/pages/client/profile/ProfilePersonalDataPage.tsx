@@ -79,14 +79,14 @@ function EditProfileModal({
       <form id="edit-profile-form" onSubmit={submit} noValidate className="space-y-4">
         {error && <Alert type="error" message={error} />}
         <div className="grid gap-4 sm:grid-cols-2">
-          <InputField
+          <InputField maxLength={100}
             id="firstName"
             label="Nombre"
             value={form.firstName}
             onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
             required
           />
-          <InputField
+          <InputField maxLength={100}
             id="lastName"
             label="Apellido"
             value={form.lastName}
@@ -94,7 +94,7 @@ function EditProfileModal({
             required
           />
         </div>
-        <InputField
+        <InputField maxLength={15}
           id="phone"
           label="Teléfono"
           type="tel"
