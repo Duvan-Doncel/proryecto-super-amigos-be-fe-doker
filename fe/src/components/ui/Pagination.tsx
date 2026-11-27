@@ -90,7 +90,7 @@ export function Pagination({
               type="button"
               className={
                 p === page
-                  ? 'focus-ring min-w-9 rounded-lg border border-[color:var(--color-primary)] bg-[color:var(--color-primary)] px-2.5 py-1.5 text-sm font-semibold text-white'
+                  ? 'focus-ring min-w-9 rounded-lg border border-[color:var(--color-btn)] bg-[color:var(--color-btn)] px-2.5 py-1.5 text-sm font-semibold text-[color:var(--color-btn-fg)]'
                   : numberBtn
               }
               aria-current={p === page ? 'page' : undefined}

@@ -143,7 +143,7 @@ export function MonthCalendar({
                 isDisabled
                   ? 'cursor-not-allowed text-text-muted/40 line-through'
                   : isSelected
-                    ? 'bg-[color:var(--color-primary)] text-white font-semibold'
+                    ? 'bg-[color:var(--color-btn)] text-[color:var(--color-btn-fg)] font-semibold'
                     : isToday
                       ? 'bg-surface-2 font-semibold text-text'
                       : 'text-text hover:bg-surface-2',

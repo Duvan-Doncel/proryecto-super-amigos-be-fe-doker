@@ -28,7 +28,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
   [
     'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
     isActive
-      ? 'bg-[color:var(--color-primary)] text-white'
+      ? 'bg-[color:var(--color-btn)] text-[color:var(--color-btn-fg)]'
       : 'text-text-muted hover:bg-surface-2 hover:text-text',
   ].join(' ');
 

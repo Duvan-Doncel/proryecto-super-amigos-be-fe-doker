@@ -38,7 +38,7 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'segmente
               onClick={() => setPreference(value)}
               className={`focus-ring inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 active
-                  ? 'bg-[color:var(--color-primary)] text-white'
+                  ? 'bg-[color:var(--color-btn)] text-[color:var(--color-btn-fg)]'
                   : 'text-text-muted hover:text-text'
               }`}
             >
