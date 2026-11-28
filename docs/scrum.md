@@ -13,7 +13,7 @@
 | Proyecto | Super Amigos Grooming Spa — Ficha 3228970 |
 | Duración de sprint | 2 semanas |
 | Tablero | GitHub Projects — [**SAG Spa — Scrum**](https://github.com/users/Duvan-Doncel/projects/1) (26 tarjetas: 23 HUs + 3 de los sprints 5–7, con puntos, sprint, responsable y estado) |
-| Fuente de las HUs | [`docs/requisitos/HUs/`](requisitos/HUs/) (23 historias con criterios de aceptación) |
+| Fuente de las HUs | [`docs/requisitos/HUs/`](requisitos/HUs/) (24 historias con criterios de aceptación) |
 
 > ⚠️ **Por completar por el equipo antes de entregar**: columna "Responsable" de la sección 3 y
 > la votación real del planning poker (sección 4). Las fechas de los sprints 1–4 se reconstruyeron
@@ -42,7 +42,7 @@ incertidumbre**, no horas.
 | 8 | Complejo, toca varias tablas o un flujo con estados | Carrito y pedido (stock), registro de mascota con foto y condiciones de piel |
 | 13 | Muy complejo, con incertidumbre | Agendar cita (horario, cupo diario, motor de precios, bloqueos) |
 
-## 3. Product backlog (23 historias)
+## 3. Product backlog (24 historias)
 
 | HU | Historia | Módulo | Prioridad | Puntos | Sprint | Responsable | Estado |
 |---|---|---|---|---|---|---|---|
@@ -69,7 +69,8 @@ incertidumbre**, no horas.
 | HU-021 | Reabastecer con pedido a proveedor | Inventario | Media | 5 | 4 | _por confirmar_ | ✅ Hecho |
 | HU-023 | Registrar venta en el mostrador | Inventario | Media | 5 | 4 | _por confirmar_ | ✅ Hecho |
 | HU-022 | Consultar reporte de ventas | Inventario | Baja | 5 | 4 | _por confirmar_ | ✅ Hecho |
-| | | | | **104** | | | |
+| HU-024 | Dar de baja y reactivar clientes conservando su historial | Clientes (staff) | Media | 5 | 7 | _por confirmar_ | ✅ Hecho (PR #35) |
+| | | | | **109** | | | |
 
 ## 4. Planning poker
 
@@ -112,7 +113,7 @@ Cada integrante rota de capa (Front / API / BD / E2E) cada semana, según
 |---|---|---|---|---|
 | **5** | 19 oct – 1 nov 2026 | "Red de pruebas en los tres niveles de la pirámide + CI" | S1 – S4 | #2 – #18 |
 | **6** | 2 – 15 nov 2026 | "Dobles de prueba y pruebas contra la BD real" | S5 – S6 | #19 – #25 |
-| **7** | 16 – 29 nov 2026 | "Documentación de entrega y presentación (30-nov)" | — | rama `docs/plan-informe-pruebas` |
+| **7** | 16 – 29 nov 2026 | "Documentación de entrega y presentación (30-nov)" | — | #26 (documentación), #27 (Docker), #34 (rediseño), #35 (HU-024 baja de clientes, límites de entrada y fechas) |
 
 ### Tareas por integrante en la Fase 2 (tomadas de la matriz de rotación)
 

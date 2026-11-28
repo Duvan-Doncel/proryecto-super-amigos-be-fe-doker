@@ -35,26 +35,47 @@
 | HTTP | `code` | Cuándo |
 |---|---|---|
 | 400 | `BAD_REQUEST` | JSON mal formado, regla de negocio violada (cita en estado final, cupo lleno, token inválido) |
-| 401 | `UNAUTHORIZED` | Sin token, token inválido/expirado, credenciales incorrectas |
-| 403 | `FORBIDDEN` | Rol no permitido, recurso de otro usuario, email sin verificar |
+| 401 | `UNAUTHORIZED` | Sin token, token inválido/expirado, credenciales incorrectas, renovar la sesión de una cuenta dada de baja |
+| 403 | `FORBIDDEN` | Rol no permitido, recurso de otro usuario, email sin verificar, login de una cuenta dada de baja |
 | 404 | `NOT_FOUND` | Recurso o ruta inexistente |
 | 409 | `CONFLICT` | Email duplicado, stock insuficiente |
 | 409 | `PET_CONDITION_BLOCKS_BOOKING` | La mascota tiene una condición (sarna, hongos, agresividad…) que exige revisión antes del baño |
-| 422 | `VALIDATION_ERROR` | El cuerpo o la query no cumple el schema `zod` |
+| 422 | `VALIDATION_ERROR` | El cuerpo o la query no cumple el schema `zod`: campo faltante, texto muy largo, valor por encima de los topes, fecha que no existe o rango de fechas inválido |
 | 429 | — | Se superó el rate limit de auth |
 | 500 | `INTERNAL_ERROR` | Error no controlado (mensaje genérico) |
+
+### Límites de entrada
+
+Topes comunes definidos en `be/src/utils/limits.ts`. Si se superan, la API responde **422** con un
+mensaje en español (nunca 500). El cuerpo JSON tiene un máximo de **100 KB**.
+
+| Qué | Tope |
+|---|---|
+| Precios, costos y montos | ≤ 9.999.999 |
+| Cantidad por línea (pedido, venta, pedido a proveedor) | 1 – 999 |
+| Líneas por pedido, venta o pedido a proveedor | ≤ 50 |
+| Stock de un producto | ≤ 99.999 |
+| Duración de un servicio | ≤ 600 minutos |
+| Días con el síntoma | 1 – 365 |
+| Teléfonos de emergencia | 1 – 20 |
+| Número de página (`?page`) | 1 – 10.000 |
+| Motivo de baja de un cliente | ≤ 300 caracteres, sin `<`, `>` ni caracteres de control |
+
+**Fechas** (`AAAA-MM-DD`): deben existir en el calendario (`2026-02-30` o `2026-13-45` → 422) y el
+año debe estar entre 2020 y 2100. En los rangos `from`/`to`, `from` no puede ser posterior a `to`, y
+el rango tiene un tope: 92 días en la disponibilidad de citas y 366 días en el reporte de ventas.
 
 **Leyenda de la columna "Acceso"**: 🌐 público · 👤 `client` · 🛠️ `staff` · 🔑 cualquier usuario autenticado.
 
 ---
 
-## Resumen de endpoints (60)
+## Resumen de endpoints (62)
 
 | # | Módulo | Prefijo | Endpoints |
 |---|---|---|---|
 | 1 | Autenticación | `/auth` | 7 |
 | 2 | Usuarios (perfil) | `/users` | 2 |
-| 3 | Staff (cuentas y clientes) | `/staff` | 2 |
+| 3 | Staff (cuentas y clientes) | `/staff` | 4 |
 | 4 | Mascotas | `/pets` | 8 |
 | 5 | Servicios | `/services` | 6 |
 | 6 | Tarifario / motor de precios | `/pricing` | 5 |
@@ -75,8 +96,8 @@
 |---|---|---|---|---|
 | POST | `/register` | 🌐 | `documentId`, `firstName`, `lastName`, `phone`, `email`, `password` | 201 · 409 email duplicado · 422 |
 | POST | `/verify-email` | 🌐 | `token` | 200 · 400 token inexistente/usado/expirado · 422 |
-| POST | `/login` | 🌐 | `email`, `password` | 200 `{ accessToken, refreshToken, user }` · 401 · 403 email sin verificar · 422 |
-| POST | `/refresh` | 🌐 | `refreshToken` | 200 nuevo `accessToken` · 401 · 422 |
+| POST | `/login` | 🌐 | `email`, `password` | 200 `{ accessToken, refreshToken, user }` · 401 · 403 email sin verificar o cuenta dada de baja · 422 |
+| POST | `/refresh` | 🌐 | `refreshToken` | 200 nuevo `accessToken` · 401 (también si la cuenta fue dada de baja) · 422 |
 | POST | `/change-password` | 🔑 | `currentPassword`, `newPassword` | 200 · 401 clave actual incorrecta · 422 nueva = actual |
 | POST | `/forgot-password` | 🌐 | `email` | 200 **siempre** (no revela si el email existe) · 422 |
 | POST | `/reset-password` | 🌐 | `token`, `newPassword` | 200 · 400 token inválido · 422 |
@@ -97,12 +118,23 @@ curl -X POST http://localhost:3000/api/v1/auth/login \
 | GET | `/me` | 🔑 | — | 200 perfil (sin contraseña) · 401 |
 | PUT | `/me` | 🔑 | `firstName?`, `lastName?`, `phone?` (el email se ignora) | 200 · 401 · 422 |
 
-## 3. Staff — `/api/v1/staff` (RF-008)
+## 3. Staff — `/api/v1/staff` (RF-008, RF-012)
 
 | Método | Ruta | Acceso | Body / Query | Respuestas |
 |---|---|---|---|---|
 | POST | `/` | 🛠️ | `firstName`, `lastName`, `email`, `password` | 201 cuenta staff · 401 · 403 · 409 · 422 |
-| GET | `/clients` | 🛠️ | `?q` (≥ 2 car.), `?hasPets=true\|false`, `?page`, `?limit` (≤ 100) | 200 paginado con `petCount` · 403 |
+| GET | `/clients` | 🛠️ | `?q` (2–100 car.), `?hasPets=true\|false`, `?status=active\|inactive\|all` (por defecto `active`), `?page`, `?limit` (≤ 100) | 200 paginado con `petCount`, `deactivatedAt` y `deactivationReason` · 403 · 422 |
+| POST | `/clients/:id/deactivate` | 🛠️ | `reason?` (≤ 300) | 200 `{ id, deactivatedAt, deactivationReason, cancelledAppointments, cancelledOrders }` · 403 · 404 · 409 ya dado de baja · 422 |
+| POST | `/clients/:id/reactivate` | 🛠️ | — | 200 · 403 · 404 · 409 ya está activo |
+
+**Búsqueda (`?q`)**: cada palabra filtra más. `q=Alvaro Espejo` devuelve solo a quien tenga
+"Alvaro" **y** "Espejo" en su nombre, apellido, correo o documento (máximo 5 palabras). La búsqueda
+todavía no ignora tildes: "Álvaro" y "Alvaro" se tratan distinto.
+
+**Dar de baja (borrado lógico)**: el cliente no se borra. Se guarda la fecha y el motivo, se
+cancelan sus citas desde hoy (pendientes o confirmadas) y sus pedidos pendientes (el stock vuelve al
+inventario), y ya no puede iniciar sesión. Su historial (citas pasadas, ventas, mascotas) se
+conserva. Ambas acciones quedan en el log de auditoría (`CLIENT_DEACTIVATED`, `CLIENT_REACTIVATED`).
 
 ## 4. Mascotas — `/api/v1/pets` (RF-012, RF-013)
 

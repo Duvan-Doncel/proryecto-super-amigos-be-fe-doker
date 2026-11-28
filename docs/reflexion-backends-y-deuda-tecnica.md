@@ -28,7 +28,7 @@ veces**, cada una con un stack distinto y con lo aprendido en la anterior.
 | 1 | Marzo 2026 | **Spring Boot 3.3 + Java 17 + JPA + H2** (BD en memoria) | CRUD de usuarios, clientes y mascotas con validación (`@NotBlank`, `@Email`) |
 | 2 | Mayo 2026 | **Spring Boot 4.0 + Java 21 + JPA + MySQL** + OpenAPI (springdoc) | CRUD de mascotas persistido en MySQL + consumo de API externa (imágenes de perros) con `RestTemplate` |
 | 3 | Junio 2026 | **Node.js + Express 5 (JavaScript) + `pg` + PostgreSQL** | CRUD genérico de clientes, administradores, veterinarias y facturas; login y correo con nodemailer; dashboard |
-| 4 | Agosto – noviembre 2026 | **Node 22 + Express 5 + TypeScript + Prisma 7 + PostgreSQL 17** + React 19 | Sistema completo: 14 módulos, 60 endpoints, 22 tablas, JWT con roles, motor de precios, 170 pruebas automatizadas, Docker y CI |
+| 4 | Agosto – noviembre 2026 | **Node 22 + Express 5 + TypeScript + Prisma 7 + PostgreSQL 17** + React 19 | Sistema completo: 14 módulos, 62 endpoints, 22 tablas, JWT con roles, motor de precios, 210 pruebas automatizadas, Docker y CI |
 
 ## 2. Comparación
 
@@ -36,7 +36,7 @@ veces**, cada una con un stack distinto y con lo aprendido en la anterior.
 |---|---|---|---|---|
 | Lenguaje / tipado | Java — fuerte | Java — fuerte | JavaScript — **sin tipos** | TypeScript `strict` — fuerte |
 | Acceso a datos | JPA/Hibernate | JPA/Hibernate | SQL a mano con `pg` | Prisma ORM (tipos generados) |
-| Esquema de BD | `ddl-auto` (lo genera Hibernate) | `ddl-auto=update` | Tablas creadas a mano | **Migraciones versionadas** (9) |
+| Esquema de BD | `ddl-auto` (lo genera Hibernate) | `ddl-auto=update` | Tablas creadas a mano | **Migraciones versionadas** (10) |
 | Persistencia | ❌ En memoria (se pierde al reiniciar) | ✅ MySQL | ✅ PostgreSQL | ✅ PostgreSQL |
 | Validación de entrada | Bean Validation | Ninguna | Middleware manual | **zod** en cada ruta (422 legible) |
 | Contraseñas | — | — | ❌ **Texto plano** (se comparan en el `WHERE`) | ✅ bcrypt |
@@ -45,8 +45,8 @@ veces**, cada una con un stack distinto y con lo aprendido en la anterior.
 | Manejo de errores | Por defecto de Spring | Por defecto de Spring | ❌ Devuelve `err.message` al cliente | ✅ Formato único `{ success, error: { code, message } }`, sin stack traces |
 | Seguridad HTTP | — | — | CORS abierto | helmet, CORS acotado, rate limit, audit log |
 | Configuración | `application.properties` | Credenciales en el archivo | `.env` sin validar | `.env` **validado con zod** al arrancar (fail-fast) |
-| Documentación API | — | ✅ Swagger automático | — | Markdown manual (60 endpoints) |
-| Pruebas | 1 (contexto) | 1 (contexto) | 0 | **170** (unitarias, integración, E2E) + CI |
+| Documentación API | — | ✅ Swagger automático | — | Markdown manual (62 endpoints) |
+| Pruebas | 1 (contexto) | 1 (contexto) | 0 | **210** (unitarias, integración, E2E) + CI |
 | Despliegue | `mvn spring-boot:run` | `mvn` + MySQL local | `nodemon` | **Docker Compose** (db, mail, be, fe) |
 | Organización del código | Capas (controller/service/repository) | Capas | Rutas + controlador CRUD genérico | **Módulos por dominio** con capas internas |
 
@@ -74,7 +74,7 @@ versión de Drizzle: la elección del ORM también es una decisión de seguridad
 
 1. **Seguridad**: es el único con contraseñas hasheadas, autenticación, roles y errores sin fuga
    de información.
-2. **Confiabilidad**: 170 pruebas automáticas y CI que bloquea un PR si algo se rompe o baja la cobertura.
+2. **Confiabilidad**: 210 pruebas automáticas y CI que bloquea un PR si algo se rompe o baja la cobertura.
 3. **Mantenibilidad**: TypeScript estricto y módulos independientes; un cambio en el esquema
    rompe la compilación antes de llegar al usuario.
 4. **Portabilidad**: con Docker Compose el sistema completo se levanta igual en cualquier equipo.
@@ -98,7 +98,7 @@ producción, ajustado por esfuerzo.
 | DT-01 | 🔴 P1 | Seguridad | `pnpm audit --prod` (26-nov-2026): **backend 36 avisos** (1 crítico en `proxy-addr`, altos en `multer`, `body-parser`, `nodemailer`, `zod`, `mysql2`…), **frontend 15** (`axios`, `follow-redirects`). En agosto estaba en 0. | Vulnerabilidades conocidas y públicas en dependencias de producción | Bajo | `pnpm update` dentro de rango + bumps puntuales; re-correr pruebas; agregar `pnpm audit` al CI |
 | DT-02 | 🔴 P1 | Infraestructura | **No hay despliegue real**: solo Docker local, sin HTTPS, con secretos y SMTP de ejemplo | El sistema no está disponible para el negocio | Medio | Desplegar (p. ej. Render/Railway + PostgreSQL gestionado), secretos reales, SMTP real |
 | DT-03 | 🔴 P1 | Seguridad | Tokens JWT guardados en `localStorage` y **sin logout en el servidor** (el refresh token no se puede revocar) | Un XSS podría robar la sesión; un token filtrado vale 7 días | Medio | Refresh token en cookie `httpOnly` + tabla de tokens revocados / rotación |
-| DT-04 | 🟠 P2 | Proceso | 6 PRs abiertos y 3 ramas sin PR: incluyen **2 correcciones de defectos** (500 → 422/404) que no están en `main` | Defectos conocidos siguen en la rama principal | Bajo | Revisar y mergear los PRs de las semanas 4–6 |
+| DT-04 | 🟠 P2 | Proceso | PRs de pruebas de las semanas 4–6 aún abiertos (#15, #19, #20, #21) y 3 ramas sin PR; incluyen la corrección de **DEF-02** (500 → 422) que no está en `main`. DEF-05 ya se mergeó (#25) | Un defecto conocido sigue en la rama principal | Bajo | Revisar y mergear los PRs pendientes |
 | DT-05 | 🟠 P2 | Pruebas | Sin pruebas automatizadas en síntomas, emergencia, tienda/pedidos, pedidos a proveedor y ventas | Cambios en inventario o ventas pueden romperse sin aviso | Medio | Pruebas de integración por módulo, empezando por ventas y pedidos (mueven stock) |
 | DT-06 | 🟠 P2 | Pruebas | Cobertura del frontend **10,5 %** con umbral de 1 % | Las pantallas de staff no tienen red de seguridad | Medio | Subir el umbral semana a semana; probar páginas de staff |
 | DT-07 | 🟡 P3 | Pruebas / CI | Las pruebas E2E (Playwright) no corren en el CI | Un flujo completo roto solo se detecta a mano | Medio | Job de CI con `docker compose up` + Playwright |
@@ -109,6 +109,7 @@ producción, ajustado por esfuerzo.
 | DT-12 | 🟢 P4 | Seguridad | Rate limiting solo en `/auth` | Abuso posible en endpoints públicos (catálogo, tarifario) | Bajo | Límite general más laxo para el resto del API |
 | DT-13 | 🟢 P4 | Calidad | 3 avisos de ESLint en el frontend (directivas `eslint-disable` sin uso); sin hooks de pre-commit | Ruido; el lint depende de que cada uno lo corra | Bajo | `pnpm lint --fix` + husky/lint-staged |
 | DT-14 | 🟢 P4 | Proceso | Tablas de cobertura semanal y vocero de `matriz-rotacion.md` vacías | Falta evidencia del seguimiento semanal | Bajo | Completar al cierre de cada semana |
+| DT-15 | 🟢 P4 | Usabilidad | La búsqueda de clientes no ignora tildes: "Álvaro" no encuentra a "Alvaro" | El staff puede creer que un cliente no existe | Bajo | Extensión `unaccent` de PostgreSQL + migración, o columna normalizada para buscar |
 
 ### Resumen por prioridad
 
@@ -117,7 +118,7 @@ producción, ajustado por esfuerzo.
 | 🔴 P1 | 3 | Salir a producción |
 | 🟠 P2 | 3 | Cerrar el siguiente sprint |
 | 🟡 P3 | 5 | Primera versión estable |
-| 🟢 P4 | 3 | Cuando haya capacidad |
+| 🟢 P4 | 4 | Cuando haya capacidad |
 
 ### Deuda ya pagada (para contexto)
 
@@ -126,6 +127,8 @@ producción, ajustado por esfuerzo.
 | CVE de SQL injection en Drizzle ORM | Migración completa a Prisma (agosto 2026) |
 | CVEs en nodemailer, axios, react-router, vite | Bumps de versión — `pnpm audit` en 0 (agosto 2026) |
 | Sin CI | Workflow `tests` en cada PR con umbral de cobertura |
+| Campos sin tope y fechas imposibles (`2026-13-45` daba 500 y `2026-02-30` se movía en silencio al 2 de marzo) | `be/src/utils/limits.ts`: topes, fechas reales y rangos acotados → 422 (PR #35, noviembre 2026) |
+| No había forma de retirar a un cliente sin perder su historial | Borrado lógico con `deactivated_at` (PR #35) |
 | Sin Docker para el stack completo | `docker-compose.yml` con db, mailpit, be y fe |
 | Errores 500 por datos inválidos (condición de piel repetida, JSON mal formado, ruta inexistente) | Encontrados por las pruebas y corregidos a 422/400/404 |
 | Documentación de arquitectura, BD y API heredada de la plantilla | Reescrita para GroomingSpa (noviembre 2026) |

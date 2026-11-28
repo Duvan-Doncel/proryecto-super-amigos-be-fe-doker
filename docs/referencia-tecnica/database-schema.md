@@ -10,7 +10,7 @@
 | Campo | Valor |
 |---|---|
 | Motor | PostgreSQL 17 |
-| ORM / migraciones | Prisma 7 (`be/prisma/schema.prisma`, `be/prisma/migrations/` — 9 migraciones) |
+| ORM / migraciones | Prisma 7 (`be/prisma/schema.prisma`, `be/prisma/migrations/` — 10 migraciones) |
 | Llaves primarias | UUID (`gen_random_uuid()`), excepto tablas de reglas (llave natural) |
 | Convención | Modelos en PascalCase (Prisma) → tablas y columnas en snake_case (`@@map`/`@map`) |
 
@@ -60,6 +60,8 @@ erDiagram
         varchar hashed_password
         enum role "client | staff"
         boolean is_email_verified
+        timestamp deactivated_at "null = activo"
+        varchar deactivation_reason "motivo de la baja (300)"
     }
     PETS {
         uuid id PK
@@ -237,7 +239,7 @@ Notación: **PK** subrayada como `PK`, llaves foráneas como `FK → tabla(colum
 
 | Tabla | Columnas | Llaves y restricciones |
 |---|---|---|
-| **users** | id, document_id, first_name, last_name, phone, email, hashed_password, role, is_email_verified, created_at, updated_at | PK(id) · UK(email) · UK(document_id) |
+| **users** | id, document_id, first_name, last_name, phone, email, hashed_password, role, is_email_verified, deactivated_at, deactivation_reason, created_at, updated_at | PK(id) · UK(email) · UK(document_id) |
 | **email_verification_tokens** | id, user_id, token, expires_at, used, created_at | PK(id) · FK user_id → users(id) ON DELETE CASCADE · UK(token) |
 | **password_reset_tokens** | id, user_id, token, expires_at, used, created_at | PK(id) · FK user_id → users(id) ON DELETE CASCADE · UK(token) |
 | **pets** | id, client_id, name, species, breed, gender, age, weight, color, size, coat_type, behavior, pathology, photo_url, created_at | PK(id) · FK client_id → users(id) ON DELETE CASCADE |
@@ -289,6 +291,15 @@ Notación: **PK** subrayada como `PK`, llaves foráneas como `FK → tabla(colum
 | `SupplierOrderStatus` | ordered, received |
 
 ## 4. Reglas de borrado (integridad referencial)
+
+> **Clientes: borrado lógico, no físico.** El staff no borra la fila de un cliente: lo **da de baja**
+> llenando `users.deactivated_at` (y opcionalmente `deactivation_reason`). Así sus citas, pedidos y
+> ventas siguen existiendo y los reportes no cambian. Al darlo de baja se cancelan sus citas desde hoy
+> (pendientes o confirmadas) y sus pedidos pendientes (el stock vuelve al inventario); el login
+> responde 403 y la renovación de sesión 401. Reactivarlo deja `deactivated_at` en NULL.
+> Migración: `20261127065252_baja_de_clientes`.
+
+La tabla de abajo aplica solo si una fila se borra físicamente (por ejemplo, en mantenimiento de la BD):
 
 | Si se borra… | Se borran en cascada | Se impide el borrado si existen |
 |---|---|---|

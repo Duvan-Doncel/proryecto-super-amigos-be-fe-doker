@@ -36,6 +36,20 @@ ejecuta 59).
 unitaria automatizada** — solo las unitarias puras del backend (17) más las del frontend (51)
 suman 68.
 
+### 1.1 Casos agregados después del commit evaluado (27-nov-2026)
+
+| PR | Archivo | Casos | Qué verifica |
+|---|---|---|---|
+| #24 | `api/appointments.repo.test.ts` | 4 | Repositorio de citas con dobles (mock, stub, fake): hora fuera de horario, día sin cupos, mascota bloqueada y cita válida |
+| #25 | `pets.contrato-front.test.ts` | 5 | Contrato real de `/pets/me` contra los handlers MSW del frontend (BD real de pruebas) |
+| #25 | `api/ids.test.ts` | 3 | `isUuid` en su valor límite (35, 36 y 37 caracteres) |
+| #35 | `clients-deactivation.test.ts` | 12 | Dar de baja y reactivar: conserva el historial, cancela citas y pedidos, devuelve el stock, bloquea login (403) y refresh (401), 404/409/422 |
+| #35 | `limits.test.ts` | 5 | Topes de dinero, cantidad, líneas, página y motivo con caracteres peligrosos → 422 |
+| #35 | `dates.test.ts` | 8 (20 ejecuciones) | Fechas que no existen (`2026-02-30`), años fuera de 2020–2100, rangos al revés o demasiado largos → 422 |
+| #35 | `users.test.ts` | +1 | Buscar "Alvaro Espejo": cada palabra filtra más |
+| #34 | `AppointmentPage.test.tsx` | +2 | Preselecciona la mascota que llega por `?mascota=` e ignora un id ajeno |
+| | **Total agregado** | **40** | **170 + 40 = 210 casos distintos** |
+
 ## 2. Cobertura
 
 | Capa | Líneas | Sentencias | Funciones | Ramas | Umbral |
@@ -107,7 +121,7 @@ corrigieron en el mismo PR junto al test que los reproduce.
 | DEF-02 | Carácter nulo (`\u0000`) en datos de proveedor respondía **500** en vez de 422 | Media | Yesid — S6 BD | 🔄 Corregido en rama `test/s6-bd-yesid`, pendiente de merge |
 | DEF-03 | JSON mal formado devolvía HTML de Express en vez de **400** JSON | Baja | Yesid — S4 seguridad | ✅ Resuelto (PR #17) |
 | DEF-04 | Ruta inexistente devolvía HTML en vez de **404** JSON | Baja | Yesid — S4 seguridad | ✅ Resuelto (PR #17) |
-| DEF-05 | `id` que no es UUID en la URL respondía **500** en vez de 404 | Media | Santiago — S6 Front (MSW vs contrato real) | 🔄 Corregido en rama `test/s6-front-santiago`, pendiente de merge |
+| DEF-05 | `id` que no es UUID en la URL respondía **500** en vez de 404 | Media | Santiago — S6 Front (MSW vs contrato real) | ✅ Resuelto (PR #25, Issue #32 cerrado) |
 | DEF-06 | Validación de nombre de mascota vacío devolvía mensaje técnico, no legible para el formulario | Baja | Álvaro — S4 Front | ✅ Resuelto (PR #16) |
 
 > Estos defectos se registran como Issues de GitHub con etiquetas de severidad y estado
@@ -119,6 +133,6 @@ corrigieron en el mismo PR junto al test que los reproduce.
    proveedor y ventas.
 2. **Cobertura del frontend (10,5 %)**: subir el umbral de `fe/vite.config.ts` y probar las
    páginas de staff.
-3. **Mergear las ramas de pruebas abiertas** (`test/s6-bd-yesid`, `test/s6-front-santiago`
-   y las de Juan) para que sus casos y correcciones lleguen a `main`.
+3. **Mergear las ramas de pruebas abiertas** (`test/s6-bd-yesid` y las de Juan) para que sus
+   casos y correcciones lleguen a `main`. `test/s6-front-santiago` ya se mergeó (PR #25).
 4. Ejecutar E2E en el CI (hoy se corren manualmente).

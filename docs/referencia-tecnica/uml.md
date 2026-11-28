@@ -53,13 +53,17 @@ flowchart LR
         UC20(["CU-20 Ver reporte de ventas"])
         UC21(["CU-21 Crear cuenta de staff"])
         UC22(["CU-22 Consultar clientes y mascotas"])
+        UC23(["CU-23 Dar de baja a un cliente"])
+        UC24(["CU-24 Reactivar a un cliente"])
     end
 
     V --- UC1 & UC3 & UC5 & UC6
     C --- UC3 & UC4 & UC7 & UC8 & UC9 & UC11 & UC12 & UC6
-    S --- UC3 & UC4 & UC13 & UC14 & UC15 & UC16 & UC17 & UC18 & UC19 & UC20 & UC21 & UC22
+    S --- UC3 & UC4 & UC13 & UC14 & UC15 & UC16 & UC17 & UC18 & UC19 & UC20 & UC21 & UC22 & UC23 & UC24
     UC1 -. "include" .-> UC2
     UC9 -. "include" .-> UC10
+    UC23 -. "extend" .-> UC22
+    UC24 -. "extend" .-> UC22
     UC2 --- M
     UC4 --- M
 ```
@@ -85,6 +89,7 @@ flowchart LR
 | CU-20 | Staff | RF-022 |
 | CU-21 | Staff | RF-008 |
 | CU-22 | Staff | RF-012, RF-013 |
+| CU-23, CU-24 | Staff | RF-012 (gestión de clientes) |
 
 ## 3. Especificación de casos de uso principales
 
@@ -136,6 +141,43 @@ flowchart LR
 3. El sistema verifica stock, descuenta inventario y guarda la venta con el precio del momento.
 - 3a. Stock insuficiente: error 409, no se guarda nada.
 
+### CU-23 — Dar de baja a un cliente
+
+| Campo | Detalle |
+|---|---|
+| Actor | Staff |
+| Precondición | El cliente existe y está activo |
+| Postcondición | Cliente con `deactivatedAt` y motivo guardados; su historial se conserva |
+| Extiende | CU-22 Consultar clientes y mascotas |
+
+**Flujo principal**
+1. En "Clientes", el staff abre la ficha del cliente y pulsa **Dar de baja**.
+2. Escribe un motivo (opcional, máximo 300 caracteres) y confirma.
+3. El sistema, en una sola transacción: guarda la fecha y el motivo, cancela las citas del cliente
+   desde hoy (pendientes o confirmadas) y sus pedidos pendientes (el stock vuelve al inventario).
+4. El sistema registra el evento `CLIENT_DEACTIVATED` en la auditoría.
+5. El cliente aparece con la etiqueta "Dado de baja" y ya no sale en los buscadores de mascotas
+   y ventas.
+
+**Flujos alternos**
+- 2a. El motivo trae `<`, `>` o caracteres de control, o supera 300 caracteres: error 422.
+- 3a. El cliente ya estaba dado de baja: error 409.
+- Después de la baja, si el cliente intenta iniciar sesión: 403 con el mensaje "Esta cuenta fue dada
+  de baja…"; si intenta renovar su sesión: 401.
+
+### CU-24 — Reactivar a un cliente
+
+| Campo | Detalle |
+|---|---|
+| Actor | Staff |
+| Precondición | El cliente está dado de baja |
+| Postcondición | `deactivatedAt` y motivo en NULL; el cliente puede volver a iniciar sesión |
+
+1. El staff filtra "Dados de baja", abre al cliente y pulsa **Reactivar**.
+2. El sistema limpia la fecha y el motivo y registra `CLIENT_REACTIVATED`.
+3. Las citas y pedidos cancelados en la baja **no** se restauran: el cliente agenda de nuevo.
+- 1a. El cliente ya estaba activo: error 409.
+
 ---
 
 ## 4. Diagrama de clases — dominio
@@ -154,6 +196,8 @@ classDiagram
         -String hashedPassword
         +UserRole role
         +Boolean isEmailVerified
+        +DateTime deactivatedAt
+        +String deactivationReason
     }
     class Pet {
         +UUID id
