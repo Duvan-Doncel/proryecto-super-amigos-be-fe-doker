@@ -9,6 +9,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import * as petsApi from '@/api/pets';
 import * as servicesApi from '@/api/services';
 import * as appointmentsApi from '@/api/appointments';
@@ -21,10 +22,55 @@ import { Button } from '@/components/ui/Button';
 import { SelectField } from '@/components/ui/SelectField';
 import { InputField } from '@/components/ui/InputField';
 import { Alert } from '@/components/ui/Alert';
+import { Modal } from '@/components/ui/Modal';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Pagination } from '@/components/ui/Pagination';
 import { MonthCalendar } from '@/components/calendar/MonthCalendar';
 import { SemaforoLight } from '@/components/ui/SemaforoLight';
+import { BUSINESS } from '@/config/legal';
+
+const WHATSAPP_LINK = `https://wa.me/57${BUSINESS.telefonoDigitos}`;
+
+// ¿Qué? El backend marca los bloqueos por comportamiento con este prefijo
+//   (pricing.service.ts); los demás son condiciones de salud (piel, pulgas…).
+// ¿Para qué? Un perro agresivo no tiene un síntoma que reportar: se coordina con el personal.
+const BEHAVIOR_PREFIX = 'Comportamiento:';
+
+function BlockedNotice({ quote }: { quote: PriceBreakdown }) {
+  const behavior = quote.blockingConditions.filter((c) => c.startsWith(BEHAVIOR_PREFIX));
+  const health = quote.blockingConditions.filter((c) => !c.startsWith(BEHAVIOR_PREFIX));
+  const linkClass =
+    'group inline-flex items-center gap-2 text-sm font-medium text-red-800 dark:text-red-300 underline';
+
+  return (
+    <div className="rounded-xl border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 p-4">
+      <p className="text-sm font-medium text-red-800 dark:text-red-300">
+        {health.length > 0
+          ? `${quote.petName} necesita una revisión antes de un baño`
+          : `La cita de ${quote.petName} se coordina con el personal`}
+      </p>
+      <p className="mt-1 text-sm text-red-700 dark:text-red-400">
+        Registramos en su ficha: {quote.blockingConditions.join(', ')}.{' '}
+        {health.length > 0
+          ? 'Por seguridad no se puede agendar grooming hasta que el personal lo revise.'
+          : 'Por seguridad de tu mascota y del equipo, esta cita no se agenda en línea: escríbenos y la organizamos juntos.'}
+      </p>
+      <div className="mt-3 flex flex-col gap-2">
+        {health.length > 0 && (
+          <Link to="/app/sintoma" className={linkClass}>
+            <SemaforoLight tone="amarillo" blink="hover" />
+            Reportar un síntoma →
+          </Link>
+        )}
+        {behavior.length > 0 && (
+          <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className={linkClass}>
+            Escribirnos por WhatsApp →
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const CITAS_PAGE_SIZE = 8;
 
@@ -33,6 +79,24 @@ interface FormData {
   serviceId: string;
   date: string;
   time: string;
+}
+
+// ¿Qué? Resultado del último intento de agendar, mostrado en un popup.
+// ¿Para qué? El botón "Agendar" está al final del formulario; un aviso arriba quedaba fuera
+//   de la pantalla y el cliente no veía si la cita se guardó ni por qué falló.
+type BookingResult =
+  | { ok: true; petName: string; serviceName: string; date: string; time: string; totalPrice: number | null }
+  | { ok: false; message: string };
+
+// ¿Qué? "2026-12-02" → "miércoles, 2 de diciembre de 2026" (sin desfase de zona horaria).
+function formatLongDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('es-CO', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 // ¿Qué? Fecha mínima seleccionable en el date picker — mañana (RN-092).
@@ -49,8 +113,7 @@ export function AppointmentPage() {
   const [formData, setFormData] = useState<FormData>({ petId: '', serviceId: '', date: '', time: '' });
   const [quote, setQuote] = useState<PriceBreakdown | null>(null);
   const [isQuoting, setIsQuoting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [result, setResult] = useState<BookingResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [citasPage, setCitasPage] = useState(1);
   const [availability, setAvailability] = useState<Availability | null>(null);
@@ -107,7 +170,6 @@ export function AppointmentPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    setError(null);
   };
 
   // ¿Qué? Trae los cupos ocupados del mes que quedó visible en el calendario — se dispara
@@ -137,7 +199,6 @@ export function AppointmentPage() {
 
   const setDate = (date: string) => {
     setFormData((prev) => ({ ...prev, date }));
-    setError(null);
   };
 
   const blocked = quote?.blocked ?? false;
@@ -145,26 +206,32 @@ export function AppointmentPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (blocked) return;
-    if (!formData.date) {
-      setError('Elige una fecha en el calendario.');
-      return;
-    }
-    if (selectedDateRemaining === 0) {
-      setError('Ese día ya no tiene cupos disponibles. Elige otro.');
-      return;
-    }
+    const fail = (message: string) => setResult({ ok: false, message });
+    if (!formData.petId) return fail('Elige la mascota que vas a traer.');
+    if (!formData.serviceId) return fail('Elige el servicio que quieres.');
+    if (!formData.date) return fail('Elige una fecha en el calendario.');
+    if (selectedDateRemaining === 0) return fail('Ese día ya no tiene cupos disponibles. Elige otro.');
+    if (!formData.time) return fail('Elige la hora de la cita (entre 9:00 a. m. y 6:00 p. m.).');
     setIsLoading(true);
-    setError(null);
-    setSuccess(false);
+    setResult(null);
 
     try {
-      await appointmentsApi.createAppointment(formData);
-      setSuccess(true);
+      const created = await appointmentsApi.createAppointment(formData);
+      setResult({
+        ok: true,
+        petName: pets.find((p) => p.id === formData.petId)?.name ?? 'tu mascota',
+        serviceName: services.find((s) => s.id === formData.serviceId)?.name ?? 'Servicio',
+        date: created.date,
+        time: created.time,
+        totalPrice: created.totalPrice ?? quote?.total ?? null,
+      });
       setFormData({ petId: '', serviceId: '', date: '', time: '' });
       setQuote(null);
       await loadAppointments();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo agendar la cita.');
+      // ¿Qué? El backend ya explica el motivo (fuera de horario, antes de mañana, sin cupo,
+      //   mascota bloqueada, fecha que no existe…); aquí solo se muestra tal cual.
+      fail(err instanceof Error ? err.message : 'No se pudo agendar la cita. Intenta de nuevo.');
     } finally {
       setIsLoading(false);
     }
@@ -181,15 +248,17 @@ export function AppointmentPage() {
         Agendar Cita de Grooming
       </h1>
 
-      {success && (
-        <div className="mb-4">
-          <Alert type="success" message="¡Cita agendada! Te contactaremos para confirmarla." />
-        </div>
-      )}
+      <BookingResultModal
+        result={result}
+        onClose={() => setResult(null)}
+        onSeeAppointments={() => {
+          setResult(null);
+          setCitasPage(1);
+          document.getElementById('mis-citas')?.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4 mb-10">
-        {error && <Alert type="error" message={error} />}
-
         <SelectField
           id="petId"
           name="petId"
@@ -255,24 +324,7 @@ export function AppointmentPage() {
           </div>
         )}
 
-        {quote && blocked && (
-          <div className="rounded-xl border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 p-4">
-            <p className="text-sm font-medium text-red-800 dark:text-red-300">
-              {quote.petName} necesita una revisión antes de un baño
-            </p>
-            <p className="mt-1 text-sm text-red-700 dark:text-red-400">
-              Registramos en su ficha: {quote.blockingConditions.join(', ')}. Por seguridad no se
-              puede agendar grooming hasta que el personal lo revise.
-            </p>
-            <Link
-              to="/app/sintoma"
-              className="group mt-3 inline-flex items-center gap-2 text-sm font-medium text-red-800 dark:text-red-300 underline"
-            >
-              <SemaforoLight tone="amarillo" blink="hover" />
-              Reportar un síntoma →
-            </Link>
-          </div>
-        )}
+        {quote && blocked && <BlockedNotice quote={quote} />}
 
         <div>
           <p className="mb-1.5 text-sm font-medium text-text">Fecha</p>
@@ -314,14 +366,14 @@ export function AppointmentPage() {
           <Button
             type="submit"
             isLoading={isLoading}
-            disabled={blocked || !formData.date || selectedDateRemaining === 0}
+            disabled={blocked}
           >
             Agendar cita 🐾
           </Button>
         </div>
       </form>
 
-      <h2 className="text-lg font-semibold text-text mb-3">Mis citas</h2>
+      <h2 id="mis-citas" className="scroll-mt-24 text-lg font-semibold text-text mb-3">Mis citas</h2>
       {appointments.length === 0 ? (
         <p className="text-sm text-text-muted">Todavía no tienes citas agendadas.</p>
       ) : (
@@ -356,6 +408,89 @@ export function AppointmentPage() {
           />
         </>
       )}
+    </div>
+  );
+}
+
+// ¿Qué? Popup con el resultado de agendar: éxito con el resumen de la cita, o el motivo exacto
+//   por el que no se pudo (el mismo mensaje que manda el backend).
+// ¿Impacto? Usa el Modal del design system: cierra con Escape o clic afuera y devuelve el foco
+//   al botón "Agendar cita".
+function BookingResultModal({
+  result,
+  onClose,
+  onSeeAppointments,
+}: {
+  result: BookingResult | null;
+  onClose: () => void;
+  onSeeAppointments: () => void;
+}) {
+  if (!result) return null;
+
+  if (!result.ok) {
+    return (
+      <Modal
+        isOpen
+        onClose={onClose}
+        size="sm"
+        title={
+          <span className="flex items-center gap-2">
+            <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" aria-hidden="true" />
+            No se pudo agendar
+          </span>
+        }
+        footer={<Button onClick={onClose}>Corregir</Button>}
+      >
+        <Alert type="error" message={result.message} />
+        <p className="mt-3 text-sm text-text-muted">
+          Tu información sigue en el formulario: corrige el dato y vuelve a intentarlo.
+        </p>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="sm"
+      title={
+        <span className="flex items-center gap-2">
+          <CheckCircle2 className="h-6 w-6 text-[color:var(--color-success)]" aria-hidden="true" />
+          Tu cita quedó guardada
+        </span>
+      }
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Listo
+          </Button>
+          <Button onClick={onSeeAppointments}>Ver mis citas</Button>
+        </>
+      }
+    >
+      <Alert type="success" message="¡Cita agendada! Te contactaremos para confirmarla." />
+      <dl className="mt-4 space-y-2 text-sm">
+        <SummaryRow label="Mascota" value={result.petName} />
+        <SummaryRow label="Servicio" value={result.serviceName} />
+        <SummaryRow label="Fecha" value={formatLongDate(result.date)} />
+        <SummaryRow label="Hora" value={result.time} />
+        {result.totalPrice != null && (
+          <SummaryRow label="Total estimado" value={formatCOP(result.totalPrice)} strong />
+        )}
+      </dl>
+      <p className="mt-3 text-xs text-text-muted">
+        Queda como <strong>pendiente</strong> hasta que el personal la confirme.
+      </p>
+    </Modal>
+  );
+}
+
+function SummaryRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-text-muted">{label}</dt>
+      <dd className={`text-right first-letter:uppercase ${strong ? 'font-semibold text-text' : 'text-text'}`}>{value}</dd>
     </div>
   );
 }

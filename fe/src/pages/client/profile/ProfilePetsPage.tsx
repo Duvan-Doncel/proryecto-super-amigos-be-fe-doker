@@ -7,7 +7,8 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { PawPrint, Plus, Pencil, Trash2, Camera } from 'lucide-react';
+import { PawPrint, Plus, Pencil, Trash2, Camera, CheckCircle2, XCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import * as petsApi from '@/api/pets';
 import type { Pet, PetSpecies, SkinConditionType } from '@/types/pets';
 import { SPECIES_LABELS, SIZE_LABELS, COAT_LABELS } from '@/types/pricing';
@@ -29,6 +30,13 @@ import { InputField } from '@/components/ui/InputField';
 import { PetFormFields } from '@/components/pets/PetFormFields';
 import { EMPTY_PET_FORM, petFormToPayload, petToForm, type PetFormData } from '@/components/pets/petForm';
 
+// ¿Qué? Resultado de guardar la ficha, mostrado en un popup (igual que al agendar una cita).
+// ¿Para qué? El formulario es largo: el error salía arriba, fuera de la vista, y el éxito era
+//   un aviso pequeño en la esquina que pasaba desapercibido.
+type SaveResult =
+  | { ok: true; isNew: boolean; pet: Pet; photoFailed: boolean }
+  | { ok: false; message: string };
+
 export function ProfilePetsPage() {
   const { showToast } = useToast();
   const [pets, setPets] = useState<Pet[] | null>(null);
@@ -41,7 +49,7 @@ export function ProfilePetsPage() {
   const [formData, setFormData] = useState<PetFormData>(EMPTY_PET_FORM);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [saveResult, setSaveResult] = useState<SaveResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<Pet | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -88,7 +96,7 @@ export function ProfilePetsPage() {
     setFormData(EMPTY_PET_FORM);
     setPhotoFile(null);
     setPhotoPreview(null);
-    setFormError(null);
+    setSaveResult(null);
     setFormOpen(true);
   };
 
@@ -97,7 +105,7 @@ export function ProfilePetsPage() {
     setFormData(petToForm(pet));
     setPhotoFile(null);
     setPhotoPreview(resolveUploadUrl(pet.photoUrl));
-    setFormError(null);
+    setSaveResult(null);
     setFormOpen(true);
   };
 
@@ -125,27 +133,33 @@ export function ProfilePetsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.species) {
-      setFormError('Selecciona la especie de la mascota.');
-      return;
-    }
+    const fail = (message: string) => setSaveResult({ ok: false, message });
+    if (!formData.name.trim()) return fail('Escribe el nombre de la mascota.');
+    if (!formData.species) return fail('Selecciona la especie de la mascota.');
     setSaving(true);
-    setFormError(null);
+    setSaveResult(null);
     try {
       const payload = petFormToPayload(formData);
       const pet = editingPet
         ? await petsApi.updateMyPet(editingPet.id, payload)
         : await petsApi.createMyPet(payload);
 
+      // ¿Qué? Si la ficha se guardó pero la foto no, se avisa sin decir que todo falló.
+      let photoFailed = false;
       if (photoFile) {
-        await petsApi.uploadPetPhoto(pet.id, photoFile);
+        try {
+          await petsApi.uploadPetPhoto(pet.id, photoFile);
+        } catch {
+          photoFailed = true;
+        }
       }
 
-      showToast(editingPet ? 'Mascota actualizada.' : 'Mascota registrada.', 'success');
       setFormOpen(false);
+      setSaveResult({ ok: true, isNew: !editingPet, pet, photoFailed });
       loadPets();
     } catch (err) {
-            setFormError(err instanceof Error ? err.message : 'No se pudo guardar la mascota.');
+      // ¿Qué? El backend explica el motivo (nombre vacío, peso fuera de rango…); se muestra tal cual.
+      fail(err instanceof Error ? err.message : 'No se pudo guardar la mascota. Intenta de nuevo.');
     } finally {
       setSaving(false);
     }
@@ -309,8 +323,10 @@ export function ProfilePetsPage() {
         </>
       )}
 
+      {/* ¿Qué? Mientras se ve el popup de error, el formulario se oculta (no se borra): al
+          pulsar "Corregir" vuelve con todo lo que el cliente ya había escrito. */}
       <Modal
-        isOpen={formOpen}
+        isOpen={formOpen && saveResult === null}
         onClose={() => setFormOpen(false)}
         title={editingPet ? `Editar a ${editingPet.name}` : 'Agregar mascota'}
         size="lg"
@@ -326,8 +342,6 @@ export function ProfilePetsPage() {
         }
       >
         <form id="pet-form" onSubmit={handleSubmit} noValidate className="space-y-4">
-          {formError && <Alert type="error" message={formError} />}
-
           <div className="flex items-center gap-4">
             <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-2">
               {photoPreview ? (
@@ -352,6 +366,8 @@ export function ProfilePetsPage() {
         </form>
       </Modal>
 
+      <PetSaveResultModal result={saveResult} onClose={() => setSaveResult(null)} />
+
       <ConfirmDialog
         isOpen={toDelete !== null}
         onClose={() => setToDelete(null)}
@@ -361,6 +377,93 @@ export function ProfilePetsPage() {
         confirmLabel="Eliminar"
         isLoading={deleting}
       />
+    </div>
+  );
+}
+
+// ¿Qué? Popup con el resultado de guardar: éxito con la ficha resumida (y atajo para agendar),
+//   o el motivo exacto por el que no se pudo guardar.
+function PetSaveResultModal({ result, onClose }: { result: SaveResult | null; onClose: () => void }) {
+  const navigate = useNavigate();
+  if (!result) return null;
+
+  if (!result.ok) {
+    return (
+      <Modal
+        isOpen
+        onClose={onClose}
+        size="sm"
+        title={
+          <span className="flex items-center gap-2">
+            <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" aria-hidden="true" />
+            No se pudo guardar la mascota
+          </span>
+        }
+        footer={<Button onClick={onClose}>Corregir</Button>}
+      >
+        <Alert type="error" message={result.message} />
+        <p className="mt-3 text-sm text-text-muted">
+          Lo que escribiste sigue en el formulario: corrige el dato y vuelve a intentarlo.
+        </p>
+      </Modal>
+    );
+  }
+
+  const { pet, isNew, photoFailed } = result;
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="sm"
+      title={
+        <span className="flex items-center gap-2">
+          <CheckCircle2 className="h-6 w-6 text-[color:var(--color-success)]" aria-hidden="true" />
+          {isNew ? `¡Listo! Registramos a ${pet.name}` : "Cambios guardados"}
+        </span>
+      }
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Listo
+          </Button>
+          {isNew && (
+            <Button
+              onClick={() => {
+                onClose();
+                navigate(`/app/cita?mascota=${pet.id}`);
+              }}
+            >
+              Agendar su primera cita
+            </Button>
+          )}
+        </>
+      }
+    >
+      <Alert
+        type="success"
+        message={isNew ? `¡Mascota registrada! Ya puedes agendar citas para ${pet.name}.` : "Mascota actualizada."}
+      />
+      <dl className="mt-4 space-y-2 text-sm">
+        <ResultRow label="Nombre" value={pet.name} />
+        <ResultRow label="Especie" value={SPECIES_LABELS[pet.species]} />
+        {pet.breed && <ResultRow label="Raza" value={pet.breed} />}
+        {pet.size && <ResultRow label="Talla" value={SIZE_LABELS[pet.size]} />}
+        {pet.weight != null && <ResultRow label="Peso" value={`${pet.weight} kg`} />}
+      </dl>
+      {photoFailed && (
+        <p className="mt-3 text-sm text-[color:var(--color-warning)]">
+          La ficha se guardó, pero la foto no se pudo subir. Inténtalo de nuevo desde "Editar".
+        </p>
+      )}
+    </Modal>
+  );
+}
+
+function ResultRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-text-muted">{label}</dt>
+      <dd className="text-right text-text">{value}</dd>
     </div>
   );
 }

@@ -131,5 +131,93 @@ describe('AppointmentPage', () => {
     expect(screen.queryByText('Total estimado')).not.toBeInTheDocument();
   });
 
-  // (aquí van los siguientes tests)
+  it('si el bloqueo es por comportamiento agresivo, ofrece WhatsApp y no reportar síntoma', async () => {
+    // Arrange — un perro agresivo no tiene síntoma que reportar.
+    vi.mocked(appointmentsApi.quoteAppointment).mockResolvedValue({
+      ...quote,
+      blocked: true,
+      blockingConditions: ['Comportamiento: agresivo'],
+    });
+    const user = userEvent.setup();
+    renderWithRouter(<AppointmentPage />);
+    await screen.findByRole('option', { name: 'Luna' });
+
+    // Act
+    await user.selectOptions(screen.getByLabelText('Mascota'), 'Luna');
+    await user.selectOptions(screen.getByLabelText('Servicio'), 'svc-1');
+
+    // Assert
+    expect(await screen.findByText('La cita de Luna se coordina con el personal')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /whatsapp/i })).toHaveAttribute('href', expect.stringContaining('wa.me'));
+    expect(screen.queryByRole('link', { name: /reportar un síntoma/i })).not.toBeInTheDocument();
+  });
+
+  it('si falta un dato, el popup dice cuál en vez de quedarse callado', async () => {
+    // Arrange
+    const user = userEvent.setup();
+    renderWithRouter(<AppointmentPage />);
+    await screen.findByRole('option', { name: 'Luna' });
+
+    // Act — agenda sin llenar nada.
+    await user.click(screen.getByRole('button', { name: /agendar cita/i }));
+
+    // Assert
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('No se pudo agendar');
+    expect(dialog).toHaveTextContent('Elige la mascota que vas a traer.');
+    expect(appointmentsApi.createAppointment).not.toHaveBeenCalled();
+  });
+
+  it('si el backend rechaza la cita, el popup muestra su motivo y conserva el formulario', async () => {
+    // Arrange — el backend responde con el motivo (p. ej. fuera de horario).
+    vi.mocked(appointmentsApi.createAppointment).mockRejectedValue(
+      new Error('La hora debe estar entre las 9:00 y las 18:00.'),
+    );
+    const user = userEvent.setup();
+    renderWithRouter(<AppointmentPage />);
+    await fillBookingForm(user, '20:00');
+
+    // Act
+    await user.click(screen.getByRole('button', { name: /agendar cita/i }));
+
+    // Assert
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('La hora debe estar entre las 9:00 y las 18:00.');
+    await user.click(screen.getByRole('button', { name: 'Corregir' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Mascota')).toHaveValue('pet-1');
+  });
+
+  it('si la cita se guarda, el popup confirma con el resumen', async () => {
+    // Arrange
+    vi.mocked(appointmentsApi.createAppointment).mockResolvedValue({
+      id: 'apt-9', clientId: 'user-test-id-1', petId: 'pet-1', serviceId: 'svc-1',
+      date: '2026-12-02', time: '10:30', status: 'pending', notes: null,
+      totalPrice: 50000, priceBreakdown: null, createdAt: '2026-11-27T00:00:00Z',
+    });
+    const user = userEvent.setup();
+    renderWithRouter(<AppointmentPage />);
+    await fillBookingForm(user, '10:30');
+
+    // Act
+    await user.click(screen.getByRole('button', { name: /agendar cita/i }));
+
+    // Assert
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('¡Cita agendada!');
+    expect(dialog).toHaveTextContent('Luna');
+    expect(dialog).toHaveTextContent('Baño completo');
+    expect(dialog).toHaveTextContent('10:30');
+    expect(dialog).toHaveTextContent('$50.000');
+  });
 });
+
+// ¿Qué? Llena mascota, servicio, un día del mes siguiente y la hora.
+async function fillBookingForm(user: ReturnType<typeof userEvent.setup>, time: string) {
+  await screen.findByRole('option', { name: 'Luna' });
+  await user.selectOptions(screen.getByLabelText('Mascota'), 'Luna');
+  await user.selectOptions(screen.getByLabelText('Servicio'), 'svc-1');
+  await user.click(screen.getByRole('button', { name: 'Mes siguiente' }));
+  await user.click(screen.getByRole('button', { name: /^15 de / }));
+  await user.type(screen.getByLabelText(/hora/i), time);
+}
