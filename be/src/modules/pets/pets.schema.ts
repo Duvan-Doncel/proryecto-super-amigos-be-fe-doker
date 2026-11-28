@@ -35,7 +35,7 @@ const petFields = {
   breed: z.string().max(100).trim().optional(),
   gender: z.string().max(20).trim().optional(),
   age: z.coerce.number().int().min(0).max(100).optional(),
-  weight: z.coerce.number().positive('El peso debe ser mayor a 0.').max(999.99).optional(),
+  weight: z.coerce.number().positive('El peso debe ser mayor a 0.').max(999.99, 'El peso no puede pasar de 999,99 kg.').optional(),
   color: z.string().max(50).trim().optional(),
   // ¿Qué? Si no se envía, el service lo deduce del peso (o queda null).
   size: z.enum(PET_SIZES).optional(),
