@@ -230,7 +230,7 @@ export function ClientHomePage() {
           disabled={!hasPets}
         />
         <SemaforoCard
-          tone="info"
+          tone="warning"
           tag="Revisión por la auxiliar"
           level="Nivel amarillo"
           icon={Stethoscope}
@@ -474,7 +474,7 @@ function FichaStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-type Tone = 'success' | 'info' | 'accent';
+type Tone = 'success' | 'warning' | 'accent';
 
 const TONES: Record<Tone, { light: SemaforoTone; tag: string; icon: string; btn: string }> = {
   success: {
@@ -483,11 +483,12 @@ const TONES: Record<Tone, { light: SemaforoTone; tag: string; icon: string; btn:
     icon: 'bg-[color:var(--color-success-soft)] text-[color:var(--color-success)]',
     btn: 'bg-[color:var(--color-btn)] text-[color:var(--color-btn-fg)] hover:bg-[color:var(--color-btn-hover)]',
   },
-  info: {
+  // ¿Qué? Nivel amarillo del semáforo en ámbar (antes era azul y no coincidía con el nombre).
+  warning: {
     light: 'amarillo',
-    tag: 'bg-[color:var(--color-info-soft)] text-[color:var(--color-info)]',
-    icon: 'bg-[color:var(--color-info-soft)] text-[color:var(--color-info)]',
-    btn: 'bg-[color:var(--color-info)] text-white dark:text-[#111] hover:opacity-90',
+    tag: 'bg-[color:var(--color-warning-soft)] text-[color:var(--color-warning)]',
+    icon: 'bg-[color:var(--color-warning-soft)] text-[color:var(--color-warning)]',
+    btn: 'bg-[color:var(--color-warning)] text-white dark:text-[#111] hover:opacity-90',
   },
   accent: {
     light: 'rojo',

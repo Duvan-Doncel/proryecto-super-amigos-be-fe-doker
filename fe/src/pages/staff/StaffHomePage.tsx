@@ -279,7 +279,7 @@ export function StaffHomePage() {
                 <AttentionRow
                   to="/staff/sintomas"
                   icon={<Stethoscope className="h-4 w-4" />}
-                  tone="accent"
+                  tone="warning"
                   title="Reportes de síntomas sin revisar"
                   tag="Triaje"
                   count={pendingReports.length}

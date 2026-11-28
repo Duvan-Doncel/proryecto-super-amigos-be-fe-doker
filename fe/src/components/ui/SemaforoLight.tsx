@@ -18,7 +18,7 @@ export type SemaforoBlink = 'always' | 'hover' | 'card' | 'none';
 
 const DOT: Record<SemaforoTone, string> = {
   verde: 'bg-[color:var(--color-success)]',
-  amarillo: 'bg-[color:var(--color-info)]',
+  amarillo: 'bg-[color:var(--color-warning)]',
   rojo: 'bg-[color:var(--color-accent)]',
 };
 
