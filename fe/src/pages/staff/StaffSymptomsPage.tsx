@@ -27,6 +27,7 @@ import { FilterBar } from '@/components/ui/FilterBar';
 import { rowNumber } from '@/utils/tablePaging';
 import { useToast } from '@/hooks/useToast';
 import { SemaforoLight } from '@/components/ui/SemaforoLight';
+import { notifyPendingChanged } from '@/utils/staffPending';
 
 export function StaffSymptomsPage() {
   const { showToast } = useToast();
@@ -71,6 +72,7 @@ export function StaffSymptomsPage() {
       await reportsApi.reviewReport(id, recommendation);
       showToast('Recomendación enviada al cliente.', 'success');
       loadReports();
+      notifyPendingChanged();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'No se pudo enviar la recomendación.', 'error');
     } finally {

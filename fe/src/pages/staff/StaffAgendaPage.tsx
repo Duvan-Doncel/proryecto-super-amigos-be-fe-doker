@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CalendarDays, PawPrint } from 'lucide-react';
 import * as appointmentsApi from '@/api/appointments';
 import type { AgendaAppointment, AppointmentStatus } from '@/types/appointments';
@@ -25,8 +26,15 @@ import { FilterBar } from '@/components/ui/FilterBar';
 import { SelectField } from '@/components/ui/SelectField';
 import { rowNumber } from '@/utils/tablePaging';
 import { useToast } from '@/hooks/useToast';
+import { notifyPendingChanged } from '@/utils/staffPending';
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+// ¿Qué? Fecha de hoy en hora local. toISOString() usa UTC: en Colombia, después de las
+//   7 p. m. daba el día siguiente.
+const todayIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 const NEXT_STATUS: Partial<Record<AppointmentStatus, AppointmentStatus>> = {
   pending: 'confirmed',
@@ -39,7 +47,11 @@ const NEXT_LABEL: Partial<Record<AppointmentStatus, string>> = {
 
 export function StaffAgendaPage() {
   const { showToast } = useToast();
-  const [date, setDate] = useState(todayIso());
+  // ¿Qué? La campanita enlaza a /staff/agenda?fecha=AAAA-MM-DD para abrir ese día.
+  const [searchParams] = useSearchParams();
+  const fechaParam = searchParams.get('fecha');
+  const startDate = fechaParam && ISO_DATE.test(fechaParam) ? fechaParam : todayIso();
+  const [date, setDate] = useState(startDate);
   const [appointments, setAppointments] = useState<AgendaAppointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -54,10 +66,12 @@ export function StaffAgendaPage() {
       .finally(() => setIsLoading(false));
   };
 
+  // ¿Qué? Carga el día al entrar y cada vez que la campanita manda otra ?fecha=.
   useEffect(() => {
-    loadAgenda(date);
+    setDate(startDate);
+    loadAgenda(startDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [startDate]);
 
   const counts = useMemo(
     () => ({
@@ -87,6 +101,7 @@ export function StaffAgendaPage() {
       showToast('Cita actualizada.', 'success');
       setToCancel(null);
       loadAgenda(date);
+      notifyPendingChanged();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'No se pudo actualizar la cita.', 'error');
     } finally {

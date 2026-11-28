@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LogOut,
   Menu,
@@ -40,6 +40,7 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import * as appointmentsApi from '@/api/appointments';
 import * as reportsApi from '@/api/symptom-reports';
 import { NotificationBell } from './NotificationBell';
+import { onPendingChanged } from '@/utils/staffPending';
 
 interface NavItem {
   to: string;
@@ -116,7 +117,8 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 
 const BADGE_TONE: Record<keyof NavBadges, string> = {
   agenda: 'bg-[color:var(--color-success-soft)] text-[color:var(--color-success)]',
-  sintomas: 'bg-[color:var(--color-accent-soft)] text-[color:var(--color-danger)]',
+  // ¿Qué? Ámbar: los síntomas leves son el nivel amarillo del semáforo.
+  sintomas: 'bg-[color:var(--color-warning-soft)] text-[color:var(--color-warning)]',
 };
 
 function todayIso(): string {
@@ -124,10 +126,26 @@ function todayIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// ¿Qué? Carga los contadores del menú una vez por visita al panel. Si una fuente falla,
-//   su globo simplemente no aparece.
+const BADGES_REFRESH_MS = 120_000;
+
+// ¿Qué? Carga los contadores del menú. Se recargan al cambiar de pantalla, cuando el staff
+//   atiende algo (responde un síntoma, cambia una cita) y cada 2 minutos.
+// ¿Para qué? Antes se cargaban una sola vez: tras responder los reportes, el menú seguía
+//   mostrando "2" aunque ya no quedara ninguno. Si una fuente falla, su globo no aparece.
 function useNavBadges(): NavBadges | null {
   const [badges, setBadges] = useState<NavBadges | null>(null);
+  const { pathname } = useLocation();
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((t) => t + 1), BADGES_REFRESH_MS);
+    const stop = onPendingChanged(() => setTick((t) => t + 1));
+    return () => {
+      window.clearInterval(id);
+      stop();
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     Promise.all([
@@ -145,7 +163,7 @@ function useNavBadges(): NavBadges | null {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [pathname, tick]);
   return badges;
 }
 
