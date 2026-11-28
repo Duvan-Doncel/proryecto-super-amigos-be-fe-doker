@@ -25,6 +25,8 @@ import { FilterBar } from '@/components/ui/FilterBar';
 import { SelectField } from '@/components/ui/SelectField';
 import { rowNumber } from '@/utils/tablePaging';
 import { useToast } from '@/hooks/useToast';
+import { BreedCombobox } from '@/components/ui/BreedCombobox';
+import { PRODUCT_CATEGORIES } from '@/data/productCategories';
 
 interface FormData {
   name: string;
@@ -320,7 +322,19 @@ export function StaffProductsPage() {
           {formError && <Alert type="error" message={formError} />}
           <InputField id="name" name="name" label="Nombre del producto" required value={formData.name} onChange={handleChange} maxLength={150} placeholder="Ej: Correa para perro" />
           <InputField id="description" name="description" label="Descripción (opcional)" value={formData.description} onChange={handleChange} maxLength={1000} />
-          <InputField id="category" name="category" label="Categoría (opcional)" value={formData.category} onChange={handleChange} maxLength={50} placeholder="Ej: Juguetes, Accesorios" />
+          {/* ¿Qué? Categoría elegida de una lista fija con filtro (data/productCategories.ts). */}
+          <BreedCombobox
+            id="category"
+            name="category"
+            label="Categoría (opcional)"
+            value={formData.category}
+            onChange={(category) => setFormData((prev) => ({ ...prev, category }))}
+            options={[...PRODUCT_CATEGORIES]}
+            placeholder="Escribe para buscar: aseo, juguetes…"
+            clearLabel="Quitar categoría"
+            emptyMessage={(text) => `Ninguna categoría coincide con “${text}”.`}
+            helpText="Elige una categoría de la lista."
+          />
           <div className="grid grid-cols-2 gap-4">
             <InputField id="price" name="price" label="Precio (COP)" type="number" min={1} required value={formData.price} onChange={handleChange} />
             <InputField id="stock" name="stock" label="Stock inicial" type="number" min={0} value={formData.stock} onChange={handleChange} placeholder="0" />
