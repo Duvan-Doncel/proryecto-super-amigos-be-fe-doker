@@ -249,19 +249,65 @@ cd fe && pnpm dev
 
 ## 🧪 Testing
 
-> ⚠️ **Estado actual**: solo el módulo de autenticación (`be/src/tests/auth.test.ts`, 35 tests)
-> tiene pruebas automatizadas. El resto de los módulos (mascotas, citas, síntomas, servicios,
-> productos, pedidos, proveedores, ventas) todavía no las tiene — es una tarea pendiente.
+📄 **Documentos**: [Plan de pruebas](docs/pruebas/plan-de-pruebas.md) (alcance, niveles,
+ambiente, criterios) · [Informe de pruebas](docs/pruebas/informe-pruebas.md) (casos,
+resultados, cobertura, defectos) · [Matriz de rotación](docs/matriz-rotacion.md) (quién probó
+qué capa cada semana).
 
-Los tests del backend corren contra una **base de datos separada** (`groomingspa_test_db`,
-definida en `be/.env.test`) para nunca borrar datos reales de desarrollo.
+### Estado actual
+
+| Capa | Herramienta | Archivos | Casos distintos |
+|---|---|---|---|
+| Backend — unitarias (reglas, schemas, DTO) | Vitest | 3 | 17 |
+| Backend — API / contrato (Prisma simulado) | Vitest + supertest | 3 | 22 |
+| Backend — integración con BD de pruebas | Vitest + supertest + PostgreSQL | 6 | 74 |
+| Frontend — componentes, páginas, utilidades | Vitest + Testing Library | 10 | 51 |
+| End-to-end | Playwright | 4 | 6 |
+| **Total** | | **26** | **170** |
+
+**Después de ese corte** se agregaron 40 casos más (PRs #24, #25, #34 y #35): **210 en total**. El detalle está en [`docs/pruebas/informe-pruebas.md`](docs/pruebas/informe-pruebas.md) §1.1.
+
+Módulos cubiertos: autenticación, perfil/staff, mascotas, citas (horario, tope diario,
+disponibilidad), motor de precios y tarifario, proveedores y contrato de errores del API.
+**Sin pruebas todavía**: síntomas, emergencias, tienda/pedidos, pedidos a proveedor y ventas.
+
+El workflow [`tests`](.github/workflows/tests.yml) corre backend (con PostgreSQL 17 como
+servicio) y frontend con cobertura en **cada PR y cada push a `main`**. El backend falla si
+la cobertura baja de 57 % líneas / 46 % ramas (`be/vitest.config.ts`).
+
+### Ambiente de pruebas separado
+
+Los tests del backend **vacían las tablas** antes de cada archivo, por eso corren contra una
+base de datos propia que nunca es la de desarrollo:
+
+| | Desarrollo | Pruebas |
+|---|---|---|
+| Base de datos | `groomingspa_db` (puerto 5433) | `groomingspa_test` (puerto 5434, sin volumen) |
+| Variables | `be/.env` | `be/.env.test` |
 
 ### Backend
 
 ```bash
+docker compose -f docker-compose.test.yml up -d   # BD de pruebas desechable
 cd be
 pnpm test               # Ejecutar todos los tests
 pnpm test:coverage      # Con reporte de cobertura
+```
+
+### Frontend
+
+```bash
+cd fe
+pnpm test               # Ejecutar todos los tests
+pnpm test:coverage      # Con reporte de cobertura
+```
+
+### End-to-end
+
+```bash
+docker compose up -d --build      # stack completo
+cd e2e && pnpm install
+pnpm exec playwright test
 ```
 
 ### Linting y tipos
@@ -292,7 +338,7 @@ plantilla-profesor/
 │   ├── .env.example / .env.test   # Plantillas de variables de entorno
 │   ├── Dockerfile
 │   ├── prisma/
-│   │   ├── schema.prisma          # 15 modelos, 7 enums
+│   │   ├── schema.prisma          # 22 modelos, 11 enums
 │   │   └── migrations/
 │   └── src/
 │       ├── app.ts                 # Registro de todos los routers
@@ -333,15 +379,29 @@ plantilla-profesor/
 
 | Documento                                                              | Descripción                                               |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| [`BITACORA.md`](BITACORA.md)                                            | Checklist obligatorio de aprendizaje, fase por fase        |
-| [`docs/requisitos/`](docs/requisitos/)                                  | RFs, HUs, RNFs y restricciones — específicos de GroomingSpa |
-| [`docs/setup/con-docker.md`](docs/setup/con-docker.md)                  | Setup con Docker (heredado de la plantilla base)           |
-| [`docs/setup/sin-docker.md`](docs/setup/sin-docker.md)                  | Setup con PostgreSQL y Node.js nativos                     |
-| [`be/README.md`](be/README.md) / [`fe/README.md`](fe/README.md)         | Guía pedagógica de la plantilla base (cubre el módulo de autenticación; los módulos propios de GroomingSpa no están documentados ahí todavía) |
+### Análisis y diseño de GroomingSpa
 
-> Los documentos en `docs/referencia-tecnica/` y `docs/conceptos/` vienen de la plantilla base
-> del profesor y describen conceptos generales (arquitectura, OWASP, accesibilidad) — no fueron
-> actualizados con el detalle específico de GroomingSpa.
+| Documento | Contenido |
+|---|---|
+| [`docs/requisitos/`](docs/requisitos/) | 23 RFs, 23 HUs, RNFs y restricciones |
+| [`docs/referencia-tecnica/architecture.md`](docs/referencia-tecnica/architecture.md) | **Diagramas de arquitectura**: contexto, contenedores (Docker), capas del backend, frontend, secuencia "agendar cita", CI y decisiones técnicas |
+| [`docs/referencia-tecnica/database-schema.md`](docs/referencia-tecnica/database-schema.md) | **MER** (22 entidades), **MR** con PK/FK, normalización, enums y reglas de borrado |
+| [`docs/referencia-tecnica/uml.md`](docs/referencia-tecnica/uml.md) | **Casos de uso** (22) con especificación, **diagramas de clases** (dominio y backend) y **diagramas de estado** |
+| [`docs/referencia-tecnica/api-endpoints.md`](docs/referencia-tecnica/api-endpoints.md) | **API REST completa**: 62 endpoints de los 14 módulos, roles, cuerpos, validaciones y códigos de error |
+| [`docs/pruebas/`](docs/pruebas/) | Plan de pruebas e informe de pruebas |
+| [`docs/scrum.md`](docs/scrum.md) | **Informe de Scrum**: roles, backlog de 24 HUs puntuadas (109 pts), planning poker, 7 sprints, tareas y retrospectiva. Tablero en [GitHub Projects](https://github.com/users/Duvan-Doncel/projects/1) |
+| [`docs/reflexion-backends-y-deuda-tecnica.md`](docs/reflexion-backends-y-deuda-tecnica.md) | **Reflexión comparativa de los 4 backends** del programa (Spring+H2, Spring+MySQL, Express JS, Express TS+Prisma) y **deuda técnica priorizada** (P1–P4) |
+
+### Otros
+
+| Documento | Descripción |
+|---|---|
+| [`BITACORA.md`](BITACORA.md) | Checklist obligatorio de aprendizaje, fase por fase |
+| [`docs/setup/con-docker.md`](docs/setup/con-docker.md) · [`sin-docker.md`](docs/setup/sin-docker.md) | Setup con Docker o con PostgreSQL y Node.js nativos |
+| [`docs/conceptos/`](docs/conceptos/) | Conceptos generales de la plantilla base (OWASP, accesibilidad, patrones) |
+| [`be/README.md`](be/README.md) / [`fe/README.md`](fe/README.md) | Guía pedagógica de la plantilla base (módulo de autenticación) |
+
+> Los diagramas están en **Mermaid**: GitHub los dibuja automáticamente al abrir cada archivo.
 
 ---
 

@@ -1,804 +1,269 @@
-# API Endpoints — NN Auth System (Express Edition)
+# API REST — Super Amigos Grooming Spa
 
 <!--
-  ¿Qué? Documentación de referencia de todos los endpoints disponibles en la API.
-  ¿Para qué? Servir como contrato entre frontend y backend, y guía de implementación.
-  ¿Impacto? Cualquier cambio en la API debe reflejarse aquí antes (o simultáneamente) a la implementación.
+  ¿Qué? Referencia de TODOS los endpoints del backend de GroomingSpa (Express + TypeScript + Prisma).
+  ¿Para qué? Servir de contrato entre frontend y backend: ruta, rol, cuerpo, validaciones y respuestas.
+  ¿Impacto? Reemplaza la versión heredada de la plantilla ("NN Auth"), que solo documentaba auth y users.
+  Fuente de verdad: be/src/app.ts (montaje), be/src/modules/*/*.router.ts (rutas) y *.schema.ts (zod).
 -->
 
-## Información General
+## Información general
 
 | Campo | Valor |
 |---|---|
-| Base URL (desarrollo) | `http://localhost:3000` |
-| Prefijo de versión | `/api/v1` |
-| Formato de datos | `application/json` |
-| Autenticación | `Authorization: Bearer <access_token>` |
-| Rate limiting | 10 req / 15 min en `/api/v1/auth/` |
+| Base URL (desarrollo) | `http://localhost:3000/api/v1` |
+| Health check | `GET http://localhost:3000/health` |
+| Formato | `application/json` (excepto subida de foto: `multipart/form-data`) |
+| Autenticación | `Authorization: Bearer <accessToken>` (JWT, 15 min) + refresh token (7 días) |
+| Roles | `client` (dueño de mascota) · `staff` (personal del spa) |
+| Rate limiting | 10 peticiones / 15 min por IP en `/api/v1/auth/*` |
+| Seguridad | `helmet`, CORS limitado a `FRONTEND_URL`, contraseñas con `bcryptjs`, validación `zod` |
 
----
+### Formato de respuesta
 
-## Resumen de Endpoints
-
-| Método | Ruta | Auth | Descripción |
-|--------|------|------|-------------|
-| GET | `/health` | No | Health check |
-| POST | `/api/v1/auth/register` | No | Registro de nuevo usuario |
-| POST | `/api/v1/auth/verify-email` | No | Verificación de email |
-| POST | `/api/v1/auth/login` | No | Login y emisión de tokens |
-| POST | `/api/v1/auth/refresh` | No† | Renovación de tokens |
-| POST | `/api/v1/auth/change-password` | Sí | Cambio de contraseña |
-| POST | `/api/v1/auth/forgot-password` | No | Solicitar recuperación |
-| POST | `/api/v1/auth/reset-password` | No | Restablecer contraseña |
-| GET | `/api/v1/users/me` | Sí | Perfil del usuario |
-| PATCH | `/api/v1/users/me/locale` | Sí | Actualizar idioma preferido |
-
-† Requiere `refreshToken` en el body.
-
----
-
-## Health Check
-
-### `GET /health`
-
-Verifica que el servidor está activo.
-
-**No requiere autenticación.**
-
-**Respuesta 200:**
-```json
-{
-  "status": "ok",
-  "timestamp": "2026-03-22T10:00:00.000Z"
-}
+```jsonc
+// Éxito
+{ "success": true, "data": { ... } }
+// Éxito paginado
+{ "success": true, "data": [ ... ], "meta": { "page": 1, "limit": 20, "total": 57, "totalPages": 3 } }
+// Error (nunca incluye SQL ni stack trace)
+{ "success": false, "error": { "code": "VALIDATION_ERROR", "message": "El petId debe ser un UUID válido." } }
 ```
 
----
+### Códigos de error
 
-## Autenticación — `/api/v1/auth`
-
-### `POST /api/v1/auth/register`
-
-Registra un nuevo usuario. Envía un email de verificación automáticamente.
-La cuenta queda inactiva (`isEmailVerified: false`) hasta que el usuario verifique su email.
-
-**No requiere autenticación.**
-
-**Body:**
-```json
-{
-  "email": "usuario@ejemplo.com",
-  "fullName": "Juan Pérez",
-  "password": "MiPassword123"
-}
-```
-
-**Validaciones (Zod):**
-- `email`: formato email válido, requerido
-- `fullName`: string, mínimo 2 caracteres, máximo 100, requerido
-- `password`: mínimo 8 caracteres, al menos 1 mayúscula, 1 minúscula, 1 número
-
-**Respuesta 201:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "email": "usuario@ejemplo.com",
-  "fullName": "Juan Pérez",
-  "isEmailVerified": false,
-  "locale": "es",
-  "createdAt": "2026-03-22T10:00:00.000Z"
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 409 | El email ya está registrado |
-| 422 | Datos de entrada inválidos (Zod validation error) |
-| 500 | Error interno del servidor |
-
----
-
-### `POST /api/v1/auth/verify-email`
-
-Valida el token de verificación de email y activa la cuenta del usuario.
-
-**No requiere autenticación.**
-
-**Body:**
-```json
-{
-  "token": "abc123def456..."
-}
-```
-
-**Respuesta 200:**
-```json
-{
-  "success": true,
-  "message": "Email verificado correctamente. Ya puedes iniciar sesión."
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 400 | Token inválido, expirado o ya utilizado |
-| 422 | Body inválido (token faltante) |
-| 500 | Error interno del servidor |
-
-> ℹ️ El token expira en 24 horas desde el registro. Cada token es de un solo uso.
-
----
-
-### `POST /api/v1/auth/login`
-
-Inicia sesión y retorna los tokens de acceso. Requiere que el email esté verificado.
-
-**No requiere autenticación.**
-
-**Body:**
-```json
-{
-  "email": "usuario@ejemplo.com",
-  "password": "MiPassword123"
-}
-```
-
-**Respuesta 200:**
-```json
-{
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "tokenType": "bearer",
-  "user": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "email": "usuario@ejemplo.com",
-    "fullName": "Juan Pérez",
-    "isEmailVerified": true,
-    "locale": "es",
-    "createdAt": "2026-03-22T10:00:00.000Z"
-  }
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 401 | Credenciales incorrectas (mensaje genérico) |
-| 403 | Email no verificado — debe activar la cuenta primero |
-| 422 | Datos de entrada inválidos |
-| 429 | Rate limit excedido |
-| 500 | Error interno del servidor |
-
-> ⚠️ Seguridad: el mensaje de error 401 NO revela si el email existe. Siempre devuelve "Invalid credentials".
-
----
-
-### `POST /api/v1/auth/refresh`
-
-Renueva el par de tokens (access + refresh). Implementa rotación de tokens.
-
-**Requiere refresh token válido en el body (no en el header).**
-
-**Body:**
-```json
-{
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-**Respuesta 200:**
-```json
-{
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "tokenType": "bearer"
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 401 | Refresh token inválido o expirado |
-| 422 | Body inválido |
-| 500 | Error interno del servidor |
-
-> ℹ️ Rotación de tokens: cada llamada exitosa a `/refresh` genera un **nuevo** `refreshToken`. El anterior queda obsoleto.
-
----
-
-### `POST /api/v1/auth/change-password`
-
-Cambia la contraseña del usuario autenticado, verificando primero la contraseña actual.
-
-**Requiere autenticación** — `Authorization: Bearer <access_token>`
-
-**Body:**
-```json
-{
-  "currentPassword": "MiPasswordActual123",
-  "newPassword": "MiNuevoPassword456"
-}
-```
-
-**Validaciones:**
-- `currentPassword`: requerido
-- `newPassword`: mínimo 8 caracteres, al menos 1 mayúscula, 1 minúscula, 1 número
-- `newPassword` no puede ser igual a `currentPassword`
-
-**Respuesta 200:**
-```json
-{
-  "success": true,
-  "message": "Contraseña cambiada correctamente."
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 400 | Nueva contraseña igual a la actual |
-| 401 | No autenticado o contraseña actual incorrecta |
-| 422 | Datos de entrada inválidos |
-| 500 | Error interno del servidor |
-
----
-
-### `POST /api/v1/auth/forgot-password`
-
-Solicita el envío de un email de recuperación de contraseña.
-
-**No requiere autenticación.**
-
-**Body:**
-```json
-{
-  "email": "usuario@ejemplo.com"
-}
-```
-
-**Respuesta 200 (siempre, incluso si el email no existe):**
-```json
-{
-  "message": "Si el email está registrado, recibirás un enlace de recuperación."
-}
-```
-
-> ⚠️ Seguridad: la respuesta es **siempre la misma** — previene enumeración de usuarios (OWASP A07).
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 422 | Formato de email inválido |
-| 429 | Rate limit excedido |
-| 500 | Error interno del servidor |
-
-**Efecto (cuando el email existe):**
-- Genera un token con `crypto.randomBytes(32)` — válido 1 hora
-- Guarda el token en la tabla `password_reset_tokens`
-- Envía email con enlace: `{FRONTEND_URL}/reset-password?token={token}`
-
----
-
-### `POST /api/v1/auth/reset-password`
-
-Restablece la contraseña usando el token de recuperación.
-
-**No requiere autenticación.** (Requiere token de reset válido en el body.)
-
-**Body:**
-```json
-{
-  "token": "token-recibido-por-email",
-  "newPassword": "MiNuevoPassword789"
-}
-```
-
-**Validaciones:**
-- `token`: requerido, string
-- `newPassword`: mínimo 8 caracteres, al menos 1 mayúscula, 1 minúscula, 1 número
-
-**Respuesta 200:**
-```json
-{
-  "success": true,
-  "message": "Contraseña restablecida correctamente. Ya puedes iniciar sesión."
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 400 | Token inválido, expirado o ya utilizado |
-| 422 | Datos de entrada inválidos |
-| 500 | Error interno del servidor |
-
----
-
-## Usuarios — `/api/v1/users`
-
-### `GET /api/v1/users/me`
-
-Retorna el perfil completo del usuario actualmente autenticado.
-
-**Requiere autenticación** — `Authorization: Bearer <access_token>`
-
-**Respuesta 200:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "email": "usuario@ejemplo.com",
-  "fullName": "Juan Pérez",
-  "isEmailVerified": true,
-  "locale": "es",
-  "createdAt": "2026-03-22T10:00:00.000Z",
-  "updatedAt": "2026-03-22T10:00:00.000Z"
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 401 | No autenticado o token inválido/expirado |
-| 500 | Error interno del servidor |
-
----
-
-### `PATCH /api/v1/users/me/locale`
-
-Actualiza el idioma preferido del usuario autenticado. El valor se persiste en la base de datos.
-
-**Requiere autenticación** — `Authorization: Bearer <access_token>`
-
-**Body:**
-```json
-{
-  "locale": "en"
-}
-```
-
-**Validaciones:**
-- `locale`: debe ser exactamente `"es"` o `"en"`
-
-**Respuesta 200:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "email": "usuario@ejemplo.com",
-  "fullName": "Juan Pérez",
-  "isEmailVerified": true,
-  "locale": "en",
-  "createdAt": "2026-03-22T10:00:00.000Z",
-  "updatedAt": "2026-03-22T10:05:00.000Z"
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 401 | No autenticado o token inválido/expirado |
-| 422 | Locale inválido (no es "es" ni "en") |
-| 500 | Error interno del servidor |
-
----
-
-## Formato de Errores
-
-Todos los errores siguen el formato estándar:
-
-```json
-{
-  "error": "Descripción legible del error"
-}
-```
-
-En errores de validación (422), se incluyen los detalles:
-```json
-{
-  "error": "Validation failed",
-  "details": [
-    {
-      "field": "email",
-      "message": "Invalid email format"
-    }
-  ]
-}
-```
-
-### Códigos de error internos
-
-| Code | HTTP | Descripción |
+| HTTP | `code` | Cuándo |
 |---|---|---|
-| `VALIDATION_ERROR` | 422 | Datos de entrada inválidos (Zod) |
-| `INVALID_CREDENTIALS` | 401 | Email o contraseña incorrectos |
-| `UNAUTHORIZED` | 401 | Token faltante, inválido o expirado |
-| `FORBIDDEN` | 403 | Sin permisos (ej: email no verificado) |
-| `NOT_FOUND` | 404 | Recurso no encontrado |
-| `CONFLICT` | 409 | Recurso ya existe (ej: email duplicado) |
-| `TOO_MANY_REQUESTS` | 429 | Rate limit excedido |
-| `INTERNAL_ERROR` | 500 | Error interno no anticipado |
+| 400 | `BAD_REQUEST` | JSON mal formado, regla de negocio violada (cita en estado final, cupo lleno, token inválido) |
+| 401 | `UNAUTHORIZED` | Sin token, token inválido/expirado, credenciales incorrectas, renovar la sesión de una cuenta dada de baja |
+| 403 | `FORBIDDEN` | Rol no permitido, recurso de otro usuario, email sin verificar, login de una cuenta dada de baja |
+| 404 | `NOT_FOUND` | Recurso o ruta inexistente |
+| 409 | `CONFLICT` | Email duplicado, stock insuficiente |
+| 409 | `PET_CONDITION_BLOCKS_BOOKING` | La mascota tiene una condición (sarna, hongos, agresividad…) que exige revisión antes del baño |
+| 422 | `VALIDATION_ERROR` | El cuerpo o la query no cumple el schema `zod`: campo faltante, texto muy largo, valor por encima de los topes, fecha que no existe o rango de fechas inválido |
+| 429 | — | Se superó el rate limit de auth |
+| 500 | `INTERNAL_ERROR` | Error no controlado (mensaje genérico) |
+
+### Límites de entrada
+
+Topes comunes definidos en `be/src/utils/limits.ts`. Si se superan, la API responde **422** con un
+mensaje en español (nunca 500). El cuerpo JSON tiene un máximo de **100 KB**.
+
+| Qué | Tope |
+|---|---|
+| Precios, costos y montos | ≤ 9.999.999 |
+| Cantidad por línea (pedido, venta, pedido a proveedor) | 1 – 999 |
+| Líneas por pedido, venta o pedido a proveedor | ≤ 50 |
+| Stock de un producto | ≤ 99.999 |
+| Duración de un servicio | ≤ 600 minutos |
+| Días con el síntoma | 1 – 365 |
+| Teléfonos de emergencia | 1 – 20 |
+| Número de página (`?page`) | 1 – 10.000 |
+| Motivo de baja de un cliente | ≤ 300 caracteres, sin `<`, `>` ni caracteres de control |
+
+**Fechas** (`AAAA-MM-DD`): deben existir en el calendario (`2026-02-30` o `2026-13-45` → 422) y el
+año debe estar entre 2020 y 2100. En los rangos `from`/`to`, `from` no puede ser posterior a `to`, y
+el rango tiene un tope: 92 días en la disponibilidad de citas y 366 días en el reporte de ventas.
+
+**Leyenda de la columna "Acceso"**: 🌐 público · 👤 `client` · 🛠️ `staff` · 🔑 cualquier usuario autenticado.
 
 ---
 
-## Rate Limiting
+## Resumen de endpoints (62)
 
-| Endpoint | Límite | Ventana |
-|---|---|---|
-| `POST /api/v1/auth/login` | 10 requests | 15 minutos |
-| `POST /api/v1/auth/register` | 10 requests | 15 minutos |
-| `POST /api/v1/auth/forgot-password` | 5 requests | 15 minutos |
-| `POST /api/v1/auth/verify-email` | 10 requests | 15 minutos |
-| `GET /api/v1/users/me` | Sin límite para usuarios auth | — |
+| # | Módulo | Prefijo | Endpoints |
+|---|---|---|---|
+| 1 | Autenticación | `/auth` | 7 |
+| 2 | Usuarios (perfil) | `/users` | 2 |
+| 3 | Staff (cuentas y clientes) | `/staff` | 4 |
+| 4 | Mascotas | `/pets` | 8 |
+| 5 | Servicios | `/services` | 6 |
+| 6 | Tarifario / motor de precios | `/pricing` | 5 |
+| 7 | Citas y agenda | `/appointments`, `/staff/agenda` | 6 |
+| 8 | Reportes de síntomas | `/symptom-reports`, `/staff/symptom-reports` | 4 |
+| 9 | Información de emergencia | `/emergency-info` | 2 |
+| 10 | Productos | `/products` | 5 |
+| 11 | Pedidos de clientes | `/orders`, `/staff/orders` | 4 |
+| 12 | Proveedores y pedidos a proveedor | `/suppliers`, `/supplier-orders` | 7 |
+| 13 | Ventas y reporte | `/sales`, `/staff/sales-report` | 2 |
+| — | Health | `/health` (sin prefijo) | 1 |
 
 ---
 
-## Ejemplos con curl
+## 1. Autenticación — `/api/v1/auth` (RF-001 a RF-006)
 
-### Registro
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@ejemplo.com","fullName":"Test User","password":"Test1234"}'
-```
+| Método | Ruta | Acceso | Body | Respuestas |
+|---|---|---|---|---|
+| POST | `/register` | 🌐 | `documentId`, `firstName`, `lastName`, `phone`, `email`, `password` | 201 · 409 email duplicado · 422 |
+| POST | `/verify-email` | 🌐 | `token` | 200 · 400 token inexistente/usado/expirado · 422 |
+| POST | `/login` | 🌐 | `email`, `password` | 200 `{ accessToken, refreshToken, user }` · 401 · 403 email sin verificar o cuenta dada de baja · 422 |
+| POST | `/refresh` | 🌐 | `refreshToken` | 200 nuevo `accessToken` · 401 (también si la cuenta fue dada de baja) · 422 |
+| POST | `/change-password` | 🔑 | `currentPassword`, `newPassword` | 200 · 401 clave actual incorrecta · 422 nueva = actual |
+| POST | `/forgot-password` | 🌐 | `email` | 200 **siempre** (no revela si el email existe) · 422 |
+| POST | `/reset-password` | 🌐 | `token`, `newPassword` | 200 · 400 token inválido · 422 |
 
-### Verificar email
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/verify-email \
-  -H "Content-Type: application/json" \
-  -d '{"token":"abc123token..."}'
-```
+**Validaciones de registro**: documento 4–20 dígitos · nombre/apellido 2–100 letras · teléfono 7–15
+dígitos · email ≤ 255 · contraseña ≥ 8 caracteres con mayúscula, minúscula y número (máx. 72).
 
-### Login
 ```bash
 curl -X POST http://localhost:3000/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@ejemplo.com","password":"Test1234"}'
+  -d '{"email":"cliente@correo.com","password":"Segura123"}'
 ```
 
-### Obtener perfil (con token)
+## 2. Usuarios — `/api/v1/users` (RF-007)
+
+| Método | Ruta | Acceso | Body | Respuestas |
+|---|---|---|---|---|
+| GET | `/me` | 🔑 | — | 200 perfil (sin contraseña) · 401 |
+| PUT | `/me` | 🔑 | `firstName?`, `lastName?`, `phone?` (el email se ignora) | 200 · 401 · 422 |
+
+## 3. Staff — `/api/v1/staff` (RF-008, RF-012)
+
+| Método | Ruta | Acceso | Body / Query | Respuestas |
+|---|---|---|---|---|
+| POST | `/` | 🛠️ | `firstName`, `lastName`, `email`, `password` | 201 cuenta staff · 401 · 403 · 409 · 422 |
+| GET | `/clients` | 🛠️ | `?q` (2–100 car.), `?hasPets=true\|false`, `?status=active\|inactive\|all` (por defecto `active`), `?page`, `?limit` (≤ 100) | 200 paginado con `petCount`, `deactivatedAt` y `deactivationReason` · 403 · 422 |
+| POST | `/clients/:id/deactivate` | 🛠️ | `reason?` (≤ 300) | 200 `{ id, deactivatedAt, deactivationReason, cancelledAppointments, cancelledOrders }` · 403 · 404 · 409 ya dado de baja · 422 |
+| POST | `/clients/:id/reactivate` | 🛠️ | — | 200 · 403 · 404 · 409 ya está activo |
+
+**Búsqueda (`?q`)**: cada palabra filtra más. `q=Alvaro Espejo` devuelve solo a quien tenga
+"Alvaro" **y** "Espejo" en su nombre, apellido, correo o documento (máximo 5 palabras). La búsqueda
+todavía no ignora tildes: "Álvaro" y "Alvaro" se tratan distinto.
+
+**Dar de baja (borrado lógico)**: el cliente no se borra. Se guarda la fecha y el motivo, se
+cancelan sus citas desde hoy (pendientes o confirmadas) y sus pedidos pendientes (el stock vuelve al
+inventario), y ya no puede iniciar sesión. Su historial (citas pasadas, ventas, mascotas) se
+conserva. Ambas acciones quedan en el log de auditoría (`CLIENT_DEACTIVATED`, `CLIENT_REACTIVATED`).
+
+## 4. Mascotas — `/api/v1/pets` (RF-012, RF-013)
+
+| Método | Ruta | Acceso | Body / Query | Respuestas |
+|---|---|---|---|---|
+| GET | `/me` | 👤 | — | 200 lista (vacía = `[]`) · 401 · 403 |
+| POST | `/me` | 👤 | campos de mascota (abajo); el dueño sale del token | 201 · 422 |
+| PUT | `/me/:id` | 👤 | campos de mascota (todos opcionales) | 200 · 403 mascota ajena · 404 · 422 |
+| DELETE | `/me/:id` | 👤 | — | 204 (borra también sus condiciones de piel) · 403 · 404 |
+| GET | `/` | 🛠️ | `?clientId=<uuid>` | 200 mascotas del cliente · 422 |
+| POST | `/` | 🛠️ | `clientId` + campos de mascota | 201 · 422 |
+| PUT | `/:id` | 🛠️ | campos de mascota | 200 · 404 · 422 |
+| POST | `/:id/photo` | 🔑 (dueño o staff) | `multipart/form-data`, campo `photo` (solo imágenes) | 200 con `photoUrl` · 403 · 422 no es imagen |
+
+**Campos de mascota**: `name` (1–100) · `species` (`canina` \| `felina`) · `breed?` · `gender?` ·
+`age?` (0–100) · `weight?` (> 0 y ≤ 999,99) · `color?` · `size?` (`pequeno` \| `mediano` \| `grande` \|
+`gigante`) · `coatType?` (`corto` \| `largo`) · `behavior?` (`tranquilo` \| `nervioso` \| `agresivo`) ·
+`skinConditions?` (`[{ type, note? }]`, sin tipos repetidos) · `pathology?` (por defecto "No aplica").
+
+Tipos de condición de piel: `pulgas`, `garrapatas`, `piel_irritada`, `alergia`, `piel_sensible`,
+`nudos`, `hongos`, `sarna`, `heridas`, `infeccion`.
+
+## 5. Servicios — `/api/v1/services` (RF-014)
+
+| Método | Ruta | Acceso | Body | Respuestas |
+|---|---|---|---|---|
+| GET | `/` | 🌐 | — | 200 servicios activos |
+| GET | `/staff` | 🛠️ | — | 200 todos (incluye inactivos) |
+| POST | `/` | 🛠️ | `name`, `description?`, `price` (> 0), `durationMinutes` (> 0) | 201 · 422 |
+| PUT | `/:id` | 🛠️ | mismos campos opcionales + `active?` | 200 · 404 · 422 |
+| PUT | `/:id/modifiers` | 🛠️ | `sizeModifiers[] { species, size, amount }`, `coatModifiers[] { species, coatType, amount }` | 200 · 422 |
+| DELETE | `/:id` | 🛠️ | — | 200/204 · 404 |
+
+## 6. Tarifario — `/api/v1/pricing` (RF-014)
+
+| Método | Ruta | Acceso | Body | Respuestas |
+|---|---|---|---|---|
+| GET | `/public` | 🌐 | — | 200 tarifario público (8 tramos: 4 perro + 4 gato) |
+| GET | `/config` | 🛠️ | — | 200 configuración completa del motor |
+| PUT | `/size-tiers` | 🛠️ | `tiers[8] { species, size, label, maxWeight }` | 200 · 422 |
+| PUT | `/skin-rules` | 🛠️ | `rules[10] { type, label, amount, blocksBooking }` | 200 · 422 |
+| PUT | `/behavior-rules` | 🛠️ | `rules[3] { behavior, label, amount, blocksBooking }` | 200 · 403 cliente · 422 |
+
+**Fórmula del precio**: precio base del servicio + recargo por tamaño (según especie) + recargo
+por tipo de pelo + recargo por cada condición de piel + recargo por comportamiento. Si alguna regla
+tiene `blocksBooking = true`, la cita no se puede agendar.
+
+## 7. Citas — `/api/v1/appointments` y `/api/v1/staff/agenda` (RF-009, RF-017) 🟢
+
+| Método | Ruta | Acceso | Body / Query | Respuestas |
+|---|---|---|---|---|
+| POST | `/appointments/quote` | 👤 | `petId`, `serviceId` | 200 `{ total, breakdown, blocked }` |
+| POST | `/appointments` | 👤 | `petId`, `serviceId`, `date` (AAAA-MM-DD), `time` (HH:mm), `notes?` (≤ 500) | 201 con `totalPrice` y `priceBreakdown` congelados · 400 fuera de horario / antes de mañana / cupo lleno · 409 `PET_CONDITION_BLOCKS_BOOKING` · 422 |
+| GET | `/appointments/me` | 👤 | — | 200 citas del cliente con mascota y servicio |
+| GET | `/appointments/availability` | 👤 | `?from=AAAA-MM-DD&to=AAAA-MM-DD` | 200 capacidad y cupos ocupados por día · 403 staff |
+| PUT | `/appointments/:id` | 🛠️ | `status`: `confirmed` \| `completed` \| `cancelled` | 200 · 400 ya en estado final · 403 cliente · 404 · 422 |
+| GET | `/staff/agenda` | 🛠️ | `?date=AAAA-MM-DD` (por defecto hoy) | 200 citas del día |
+
+**Reglas de negocio**: horario 9:00–18:00 (RN-093) · solo a partir de mañana (RN-092) · máximo
+**10 citas por día** (las canceladas liberan cupo).
+
 ```bash
-curl http://localhost:3000/api/v1/users/me \
-  -H "Authorization: Bearer <access_token>"
+curl -X POST http://localhost:3000/api/v1/appointments \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"petId":"<uuid>","serviceId":"<uuid>","date":"2026-12-02","time":"10:30"}'
 ```
 
-### Cambiar contraseña
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/change-password \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <access_token>" \
-  -d '{"currentPassword":"Test1234","newPassword":"NuevoPass99"}'
-```
+## 8. Reportes de síntomas — `/api/v1/symptom-reports` (RF-010, RF-018) 🟡
 
-### Actualizar idioma
-```bash
-curl -X PATCH http://localhost:3000/api/v1/users/me/locale \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <access_token>" \
-  -d '{"locale":"en"}'
-```
+| Método | Ruta | Acceso | Body | Respuestas |
+|---|---|---|---|---|
+| POST | `/symptom-reports` | 👤 | `petId`, `symptom` (3–500), `daysWithSymptom` (≥ 1), `notes?` | 201 · 403 mascota ajena · 422 |
+| GET | `/symptom-reports/me` | 👤 | — | 200 reportes del cliente con su recomendación |
+| GET | `/staff/symptom-reports` | 🛠️ | — | 200 reportes pendientes |
+| PUT | `/staff/symptom-reports/:id` | 🛠️ | `recommendation` (1–1000) | 200 revisado · 400 ya revisado · 404 · 422 |
+
+> La auxiliar **no diagnostica ni receta**: solo da una recomendación (p. ej. "acudir al veterinario").
+
+## 9. Emergencia — `/api/v1/emergency-info` (RF-011) 🔴
+
+| Método | Ruta | Acceso | Body | Respuestas |
+|---|---|---|---|---|
+| GET | `/` | 🌐 | — | 200 `{ searchQuery, emergencyPhones[] }` (para el mapa de veterinarias cercanas) |
+| PUT | `/` | 🛠️ | `searchQuery` (3–200), `emergencyPhones[] { label, phone }` (≥ 1) | 200 · 422 |
+
+## 10. Productos — `/api/v1/products` (RF-015)
+
+| Método | Ruta | Acceso | Body / Query | Respuestas |
+|---|---|---|---|---|
+| GET | `/` | 🌐 | `?page`, `?limit` (≤ 100), `?category`, `?search` | 200 paginado (solo activos) |
+| GET | `/staff` | 🛠️ | igual + `?active=true\|false`, `?lowStock=true` | 200 paginado |
+| POST | `/` | 🛠️ | `name` (2–150), `description?`, `price` (> 0), `stock` (≥ 0), `category?` | 201 · 422 |
+| PUT | `/:id` | 🛠️ | mismos campos opcionales + `active?` | 200 · 404 · 422 |
+| DELETE | `/:id` | 🛠️ | — | 200/204 · 404 |
+
+## 11. Pedidos de clientes — `/api/v1/orders` (RF-016, RF-019)
+
+| Método | Ruta | Acceso | Body | Respuestas |
+|---|---|---|---|---|
+| POST | `/orders` | 👤 | `items[] { productId, quantity (> 0) }` (≥ 1) | 201 · 404 producto · 409 stock insuficiente · 422 |
+| GET | `/orders/me` | 👤 | — | 200 pedidos del cliente |
+| GET | `/staff/orders` | 🛠️ | — | 200 pedidos pendientes |
+| PUT | `/staff/orders/:id` | 🛠️ | `status`: `completed` \| `cancelled` | 200 · 400 · 404 · 422 |
+
+## 12. Proveedores — `/api/v1/suppliers` y `/api/v1/supplier-orders` (RF-020, RF-021)
+
+Todo el módulo exige rol 🛠️ staff (401 sin token, 403 cliente).
+
+| Método | Ruta | Body | Respuestas |
+|---|---|---|---|
+| GET | `/suppliers` | — | 200 lista |
+| POST | `/suppliers` | `name` (2–150), `contactName?`, `phone?`, `email?`, `address?` | 201 · 422 |
+| PUT | `/suppliers/:id` | mismos opcionales + `active?` | 200 · 404 · 422 |
+| DELETE | `/suppliers/:id` | — | 200/204 · 404 |
+| GET | `/supplier-orders` | — | 200 lista con ítems |
+| POST | `/supplier-orders` | `supplierId`, `expectedDate?`, `items[] { productId, quantity, unitCost }` | 201 · 404 · 422 |
+| PUT | `/supplier-orders/:id` | `status: "received"`, `receivedDate?` → **suma el stock** de los productos | 200 · 400 ya recibido · 404 · 422 |
+
+## 13. Ventas — `/api/v1/sales` y `/api/v1/staff/sales-report` (RF-022, RF-023)
+
+| Método | Ruta | Acceso | Body / Query | Respuestas |
+|---|---|---|---|---|
+| POST | `/sales` | 🛠️ | `items[] { productId, quantity }`, `clientId?` **o** `clientName?` (no ambos) | 201 · descuenta stock · 409 stock insuficiente · 422 |
+| GET | `/staff/sales-report` | 🛠️ | `?from=AAAA-MM-DD&to=AAAA-MM-DD` | 200 totales por período · 422 |
 
 ---
 
-## Health Check
-
-### `GET /health`
-
-Verifica que el servidor está activo.
-
-**No requiere autenticación.**
-
-**Respuesta 200:**
-```json
-{
-  "status": "ok",
-  "timestamp": "2026-03-22T10:00:00.000Z"
-}
-```
-
----
-
-## Autenticación — `/api/v1/auth`
-
-### `POST /api/v1/auth/register`
-
-Registra un nuevo usuario en el sistema.
-
-**No requiere autenticación.**
-
-**Body:**
-```json
-{
-  "email": "usuario@ejemplo.com",
-  "full_name": "Juan Pérez",
-  "password": "MiPassword123"
-}
-```
-
-**Validaciones (zod):**
-- `email`: formato email válido, requerido
-- `full_name`: string, mínimo 2 caracteres, máximo 100, requerido
-- `password`: mínimo 8 caracteres, al menos 1 mayúscula, 1 minúscula, 1 número
-
-**Respuesta 201:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "email": "usuario@ejemplo.com",
-  "full_name": "Juan Pérez",
-  "is_active": true,
-  "created_at": "2026-03-22T10:00:00.000Z"
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 400 | Datos de entrada inválidos (zod validation error) |
-| 409 | El email ya está registrado |
-| 500 | Error interno del servidor |
-
----
-
-### `POST /api/v1/auth/login`
-
-Inicia sesión y retorna los tokens de acceso.
-
-**No requiere autenticación.**
-
-**Body:**
-```json
-{
-  "email": "usuario@ejemplo.com",
-  "password": "MiPassword123"
-}
-```
-
-**Respuesta 200:**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer"
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 400 | Datos de entrada inválidos |
-| 401 | Credenciales incorrectas (mensaje genérico) |
-| 500 | Error interno del servidor |
-
-> ⚠️ Seguridad: el mensaje de error NO revela si el email existe o no. Siempre devuelve "Invalid credentials".
-
----
-
-### `POST /api/v1/auth/refresh`
-
-Renueva el access token usando el refresh token.
-
-**Requiere refresh token válido (no el access token).**
-
-**Body:**
-```json
-{
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-**Respuesta 200:**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer"
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 400 | Refresh token faltante |
-| 401 | Refresh token inválido o expirado |
-| 500 | Error interno del servidor |
-
----
-
-### `POST /api/v1/auth/change-password`
-
-Cambia la contraseña del usuario autenticado.
-
-**Requiere autenticación** — `Authorization: Bearer <access_token>`
-
-**Body:**
-```json
-{
-  "current_password": "MiPasswordActual123",
-  "new_password": "MiNuevoPassword456"
-}
-```
-
-**Validaciones:**
-- `current_password`: requerido
-- `new_password`: mínimo 8 caracteres, al menos 1 mayúscula, 1 minúscula, 1 número
-- `new_password` no puede ser igual a `current_password`
-
-**Respuesta 200:**
-```json
-{
-  "message": "Password changed successfully"
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 400 | Datos inválidos o nueva contraseña igual a la actual |
-| 401 | No autenticado o contraseña actual incorrecta |
-| 500 | Error interno del servidor |
-
----
-
-### `POST /api/v1/auth/forgot-password`
-
-Solicita el envío de un email de recuperación de contraseña.
-
-**No requiere autenticación.**
-
-**Body:**
-```json
-{
-  "email": "usuario@ejemplo.com"
-}
-```
-
-**Respuesta 200:**
-```json
-{
-  "message": "If that email exists, a reset link has been sent"
-}
-```
-
-> ⚠️ Seguridad: la respuesta es **siempre la misma** independientemente de si el email existe o no. Esto previene enumeración de usuarios.
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 400 | Formato de email inválido |
-| 500 | Error interno del servidor |
-
-**Efecto:**
-- Genera un token UUID único con expiración de 1 hora
-- Guarda el token en la tabla `password_reset_tokens`
-- Envía email con enlace: `{FRONTEND_URL}/reset-password?token={token}`
-
----
-
-### `POST /api/v1/auth/reset-password`
-
-Restablece la contraseña usando el token de recuperación.
-
-**No requiere autenticación.** (Requiere token de reset válido en el body.)
-
-**Body:**
-```json
-{
-  "token": "uuid-token-recibido-por-email",
-  "new_password": "MiNuevoPassword789"
-}
-```
-
-**Validaciones:**
-- `token`: requerido, string
-- `new_password`: mínimo 8 caracteres, al menos 1 mayúscula, 1 minúscula, 1 número
-
-**Respuesta 200:**
-```json
-{
-  "message": "Password reset successfully"
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 400 | Datos inválidos, token expirado, o token ya utilizado |
-| 404 | Token no encontrado (mensaje genérico) |
-| 500 | Error interno del servidor |
-
----
-
-## Usuarios — `/api/v1/users`
-
-### `GET /api/v1/users/me`
-
-Retorna el perfil del usuario actualmente autenticado.
-
-**Requiere autenticación** — `Authorization: Bearer <access_token>`
-
-**Respuesta 200:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "email": "usuario@ejemplo.com",
-  "full_name": "Juan Pérez",
-  "is_active": true,
-  "created_at": "2026-03-22T10:00:00.000Z",
-  "updated_at": "2026-03-22T10:00:00.000Z"
-}
-```
-
-**Errores:**
-| Código | Descripción |
-|---|---|
-| 401 | No autenticado o token inválido/expirado |
-| 404 | Usuario no encontrado (edge case) |
-| 500 | Error interno del servidor |
-
----
-
-## Formato de Errores
-
-Todos los errores siguen el formato estándar:
-
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Descripción legible del error",
-    "details": [
-      {
-        "field": "email",
-        "message": "Invalid email format"
-      }
-    ]
-  }
-}
-```
-
-El campo `details` solo aparece en errores de validación (400).
-
-### Códigos de error internos
-
-| Code | HTTP | Descripción |
-|---|---|---|
-| `VALIDATION_ERROR` | 400 | Datos de entrada inválidos (zod) |
-| `INVALID_CREDENTIALS` | 401 | Email o contraseña incorrectos |
-| `UNAUTHORIZED` | 401 | Token faltante, inválido o expirado |
-| `FORBIDDEN` | 403 | Sin permisos para este recurso |
-| `NOT_FOUND` | 404 | Recurso no encontrado |
-| `CONFLICT` | 409 | Recurso ya existe (ej: email duplicado) |
-| `INTERNAL_ERROR` | 500 | Error interno no anticipado |
-
----
-
-## Ejemplos con curl
-
-### Registro
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@ejemplo.com","full_name":"Test User","password":"Test1234"}'
-```
-
-### Login
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@ejemplo.com","password":"Test1234"}'
-```
-
-### Obtener perfil (con token)
-```bash
-curl http://localhost:3000/api/v1/users/me \
-  -H "Authorization: Bearer <access_token>"
-```
-
-### Cambiar contraseña
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/change-password \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <access_token>" \
-  -d '{"current_password":"Test1234","new_password":"NuevoPass99"}'
-```
+## Health check
+
+| Método | Ruta | Acceso | Respuesta |
+|---|---|---|---|
+| GET | `/health` | 🌐 | 200 `{ status: "ok", timestamp }` — usado por Docker y `scripts/start.sh` |
