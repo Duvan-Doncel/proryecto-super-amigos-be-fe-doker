@@ -45,11 +45,11 @@ export default defineConfig({
       reporter: ['text', 'lcov'],
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/__tests__/**', 'src/types/**', 'src/main.tsx'],
-            thresholds: {
+      thresholds: {
         lines: 1,
         functions: 1,
-        statements: 1,
         branches: 3,
+        statements: 1,
       },
     },
   },
