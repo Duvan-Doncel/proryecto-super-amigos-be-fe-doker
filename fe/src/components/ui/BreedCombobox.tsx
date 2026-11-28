@@ -14,6 +14,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { capitalizeFirstLetter } from '@/utils/capitalize';
 
 interface BreedComboboxProps {
   id: string;
@@ -24,6 +25,11 @@ interface BreedComboboxProps {
   options: string[];
   placeholder?: string;
   disabled?: boolean;
+  // ¿Qué? Textos opcionales para reusar el campo con otras listas (p. ej. categorías de
+  //   productos). Si no se pasan, quedan los de raza.
+  clearLabel?: string;
+  emptyMessage?: (text: string) => string;
+  helpText?: string;
 }
 
 // ¿Qué? Quita tildes para poder buscar "aleman" y encontrar "Alemán".
@@ -44,6 +50,9 @@ export function BreedCombobox({
   options,
   placeholder = 'Escribe para buscar una raza…',
   disabled = false,
+  clearLabel = 'Quitar raza seleccionada',
+  emptyMessage = (text) => `Ninguna raza coincide con “${text}”.`,
+  helpText = 'Selecciona una raza de la lista. Si es mestiza/criolla, deja el campo vacío.',
 }: BreedComboboxProps) {
   // ¿Qué? Texto que se ve en el input mientras se escribe/filtra.
   // ¿Para qué? Separado de `value` porque mientras el usuario teclea, todavía no ha
@@ -134,6 +143,7 @@ export function BreedCombobox({
           value={inputText}
           placeholder={placeholder}
           onChange={(e) => {
+            capitalizeFirstLetter(e.target);
             setInputText(e.target.value);
             setActiveIndex(0);
             setIsOpen(true);
@@ -158,7 +168,7 @@ export function BreedCombobox({
               type="button"
               onClick={clearSelection}
               tabIndex={-1}
-              aria-label="Quitar raza seleccionada"
+              aria-label={clearLabel}
               className="p-1 rounded text-text-muted hover:text-text"
             >
               ✕
@@ -175,7 +185,7 @@ export function BreedCombobox({
           >
             {filtered.length === 0 ? (
               <li className="px-3 py-2 text-sm text-text-muted">
-                Ninguna raza coincide con “{inputText}”.
+                {emptyMessage(inputText)}
               </li>
             ) : (
               filtered.map((breed, index) => (
@@ -203,9 +213,7 @@ export function BreedCombobox({
           </ul>
         )}
       </div>
-      <p className="text-xs text-text-muted">
-        Selecciona una raza de la lista. Si es mestiza/criolla, deja el campo vacío.
-      </p>
+      <p className="text-xs text-text-muted">{helpText}</p>
     </div>
   );
 }

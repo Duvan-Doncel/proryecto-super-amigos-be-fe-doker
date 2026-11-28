@@ -19,79 +19,83 @@
 /* ¿Qué? Dark mode por clase `.dark` en <html> (lo pone ThemeProvider / el guard de index.html). */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ───────────── TOKENS CRUDOS — TEMA CLARO (por defecto) ───────────── */
+/* ───────────── TOKENS CRUDOS — TEMA CLARO (por defecto) ─────────────
+ * Paleta "spa botánico" (diseño de Google Stitch): crema cálido + verde salvia,
+ * con terracota como acento para lo urgente. */
 :root {
-  --c-bg: #f7f4f0;          /* lienzo de la app — blanco cálido */
-  --c-surface: #ffffff;     /* tarjetas, barras, modales */
-  --c-surface-2: #f3efe9;   /* zonas hundidas: filas alternas, inputs sutiles */
-  --c-border: #e6e0d7;      /* bordes y divisores (stone cálido) */
+  --c-bg: #f7f2ea;          /* lienzo de la app — crema cálido */
+  --c-surface: #fffcf7;     /* tarjetas, barras, modales */
+  --c-surface-2: #f1ebe1;   /* zonas hundidas: chips, filas alternas, inputs sutiles */
+  --c-border: #e6ddcf;      /* bordes y divisores (lino) */
 
-  --c-text: #1c1917;        /* texto principal */
-  --c-text-muted: #6f675f;  /* texto secundario — cumple AA sobre surface */
+  --c-text: #2a2620;        /* texto principal */
+  --c-text-muted: #6b6358;  /* texto secundario — cumple AA sobre surface */
 
-  --c-primary: #0f766e;         /* texto/íconos interactivos sobre claro (AA ~5:1) */
-  --c-primary-strong: #115e59;  /* hover de enlaces */
+  --c-primary: #4c6853;         /* salvia oscuro: texto/íconos interactivos (AA ~5.6:1) */
+  --c-primary-strong: #3b5341;  /* hover de enlaces */
 
-  --c-btn: #0f766e;             /* fondo del botón primario */
-  --c-btn-hover: #115e59;
-  --c-btn-fg: #ffffff;          /* texto del botón primario (AA ~5:1 sobre --c-btn) */
+  --c-btn: #536f58;             /* fondo del botón primario (salvia) */
+  --c-btn-hover: #445b48;
+  --c-btn-fg: #ffffff;          /* texto del botón primario (AA ~5.4:1 sobre --c-btn) */
 
-  --c-btn-danger: #dc2626;      /* botón de acción destructiva (AA ~4.8:1 con blanco) */
-  --c-btn-danger-hover: #b91c1c;
+  --c-btn-danger: #b8453a;      /* botón de acción destructiva (AA ~5.3:1 con blanco) */
+  --c-btn-danger-hover: #9a3a30;
 
-  --c-accent: #ea580c;          /* acento cálido; nunca como color de texto de cuerpo */
-  --c-accent-soft: #fff2e8;
+  --c-accent: #d4775f;          /* terracota: urgencias y realces; nunca texto de cuerpo */
+  --c-accent-soft: #fbe9e2;
 
-  --c-success: #15803d;
-  --c-success-soft: #eaf6ec;
-  --c-warning: #b45309;
-  --c-warning-soft: #fdf1e3;
-  --c-danger: #b91c1c;
-  --c-danger-soft: #fdecec;
-  --c-info: #0f766e;
-  --c-info-soft: #e9f6f4;
+  --c-success: #3d7a4d;
+  --c-success-soft: #e6f1e7;
+  --c-warning: #9a5f0e;
+  --c-warning-soft: #fbf0dc;
+  --c-danger: #b0402f;
+  --c-danger-soft: #fbe6e2;
+  --c-info: #44658a;            /* azul pizarra: valoración / síntomas */
+  --c-info-soft: #e6edf5;
 
-  --c-ring: #14b8a6;
+  --c-ring: #7d9f83;
 
-  --sh-card: 0 1px 2px rgb(28 25 23 / 0.04), 0 4px 16px -4px rgb(28 25 23 / 0.10);
-  --sh-pop: 0 12px 40px -8px rgb(28 25 23 / 0.22);
+  --sh-card: 0 1px 2px rgb(42 38 32 / 0.04), 0 6px 20px -8px rgb(42 38 32 / 0.12);
+  --sh-pop: 0 12px 40px -8px rgb(42 38 32 / 0.22);
 }
 
-/* ───────────── TOKENS CRUDOS — TEMA OSCURO ───────────── */
+/* ───────────── TOKENS CRUDOS — TEMA OSCURO ─────────────
+ * Carbón casi negro con salvia clara: el botón primario pasa a fondo claro y texto
+ * oscuro, como en el diseño. */
 .dark {
-  --c-bg: #1a1715;
-  --c-surface: #24201e;
-  --c-surface-2: #2e2926;
-  --c-border: #423b35;
+  --c-bg: #121412;
+  --c-surface: #1a1d1a;
+  --c-surface-2: #232723;
+  --c-border: #30362f;
 
-  --c-text: #f4f1ee;
-  --c-text-muted: #a8a09a;
+  --c-text: #eeede8;
+  --c-text-muted: #a5a89f;
 
-  --c-primary: #2dd4bf;         /* teal claro — AA alto sobre fondo oscuro */
-  --c-primary-strong: #5eead4;
+  --c-primary: #b6cfb9;         /* salvia clara — AA alto sobre fondo oscuro */
+  --c-primary-strong: #d0e2d2;
 
-  --c-btn: #0f766e;             /* mismo botón; texto blanco mantiene AA */
-  --c-btn-hover: #0d9488;
-  --c-btn-fg: #ffffff;
+  --c-btn: #b6cfb9;             /* botón claro con texto oscuro (AA ~11:1) */
+  --c-btn-hover: #c9ddcb;
+  --c-btn-fg: #16201a;
 
-  --c-btn-danger: #dc2626;
-  --c-btn-danger-hover: #ef4444;
+  --c-btn-danger: #c4503f;
+  --c-btn-danger-hover: #d4614f;
 
-  --c-accent: #fb923c;
-  --c-accent-soft: #3a2415;
+  --c-accent: #e8937e;
+  --c-accent-soft: #3a221c;
 
-  --c-success: #4ade80;
-  --c-success-soft: #14271a;
-  --c-warning: #fbbf24;
-  --c-warning-soft: #2e2410;
-  --c-danger: #f87171;
-  --c-danger-soft: #2f1717;
-  --c-info: #2dd4bf;
-  --c-info-soft: #10302d;
+  --c-success: #92cf9f;
+  --c-success-soft: #17261b;
+  --c-warning: #e6b85c;
+  --c-warning-soft: #2c2412;
+  --c-danger: #f08a7e;
+  --c-danger-soft: #33191a;
+  --c-info: #9fbad8;
+  --c-info-soft: #18222d;
 
-  --c-ring: #2dd4bf;
+  --c-ring: #b6cfb9;
 
-  --sh-card: 0 1px 2px rgb(0 0 0 / 0.30), 0 4px 16px -4px rgb(0 0 0 / 0.45);
+  --sh-card: 0 1px 2px rgb(0 0 0 / 0.30), 0 6px 20px -8px rgb(0 0 0 / 0.55);
   --sh-pop: 0 12px 40px -8px rgb(0 0 0 / 0.60);
 }
 
@@ -101,7 +105,14 @@
  *   2. `var(--color-primary)` queda disponible en runtime para clases de valor
  *      arbitrario como `text-[color:var(--color-primary)]`. */
 @theme {
-  --font-display: "Nunito", "Segoe UI", system-ui, sans-serif;
+  /* ¿Qué? Parpadeo de la luz del semáforo del cliente (al pasar el puntero por su botón). */
+  --animate-semaforo: semaforo-blink 0.7s ease-in-out infinite;
+  @keyframes semaforo-blink {
+    0%, 100% { opacity: 1; transform: scale(1.2); }
+    50% { opacity: 0.25; transform: scale(0.85); }
+  }
+
+  --font-display: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
 
   --color-bg: var(--c-bg);
   --color-surface: var(--c-surface);
@@ -129,29 +140,28 @@
   --color-ring: var(--c-ring);
 }
 
-/* ¿Qué? Escala `brand-*` (teal) — reemplaza el azul anterior. Mantiene funcionando las
-   clases `bg-brand-600`, `text-brand-400`, etc. ya usadas en el código, ahora en la marca
-   nueva. Y una escala `accent-*` (durazno) para realces. */
+/* ¿Qué? Escala `brand-*` (verde salvia) y `accent-*` (terracota). Mantienen funcionando
+   las clases `bg-brand-600`, `text-brand-400`, etc. ya usadas en el código. */
 @theme {
-  --color-brand-50: #f0fdfa;
-  --color-brand-100: #ccfbf1;
-  --color-brand-200: #99f6e4;
-  --color-brand-300: #5eead4;
-  --color-brand-400: #2dd4bf;
-  --color-brand-500: #14b8a6;
-  --color-brand-600: #0d9488;
-  --color-brand-700: #0f766e;
-  --color-brand-800: #115e59;
-  --color-brand-900: #134e4a;
+  --color-brand-50: #f2f6f2;
+  --color-brand-100: #e0eae1;
+  --color-brand-200: #c3d6c5;
+  --color-brand-300: #9fbca3;
+  --color-brand-400: #7d9f83;
+  --color-brand-500: #648769;
+  --color-brand-600: #536f58;
+  --color-brand-700: #445b48;
+  --color-brand-800: #37493a;
+  --color-brand-900: #2c3a2f;
 
-  --color-accent-50: #fff7ed;
-  --color-accent-100: #ffedd5;
-  --color-accent-200: #fed7aa;
-  --color-accent-300: #fdba74;
-  --color-accent-400: #fb923c;
-  --color-accent-500: #f97316;
-  --color-accent-600: #ea580c;
-  --color-accent-700: #c2410c;
+  --color-accent-50: #fdf4f1;
+  --color-accent-100: #fae4dc;
+  --color-accent-200: #f4c7b7;
+  --color-accent-300: #eba58f;
+  --color-accent-400: #e1876d;
+  --color-accent-500: #d46b4f;
+  --color-accent-600: #bb553b;
+  --color-accent-700: #9a4430;
 }
 
 /* ───────────── BASE ───────────── */
@@ -166,14 +176,14 @@ html.dark {
 
 body {
   margin: 0;
-  font-family: "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+  font-family: "Plus Jakarta Sans", "Segoe UI", Roboto, system-ui, sans-serif;
   background-color: var(--c-bg);
   color: var(--c-text);
 }
 
 h1, h2, h3, .font-display {
-  font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
-  letter-spacing: -0.01em;
+  font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 /* ───────────── UTILIDADES DEL DESIGN SYSTEM ───────────── */
@@ -197,7 +207,7 @@ h1, h2, h3, .font-display {
 
 /* Gradiente sutil de marca para héroes y cabeceras destacadas. */
 .brand-gradient {
-  background-image: linear-gradient(135deg, #0f766e, #14b8a6);
+  background-image: linear-gradient(135deg, #536f58, #7d9f83);
 }
 
 /* Aparición suave reutilizable (toasts, modales). */
@@ -210,7 +220,9 @@ h1, h2, h3, .font-display {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-in-up {
+  .animate-fade-in-up,
+  .animate-semaforo,
+  .animate-ping {
     animation: none;
   }
 }

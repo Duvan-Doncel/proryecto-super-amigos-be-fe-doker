@@ -72,3 +72,38 @@ describe('InputField', () => {
     expect(input).toHaveAttribute('type', 'password');
   });
 });
+
+describe('InputField — mayúscula inicial', () => {
+  it('en un campo de texto la primera letra queda en mayúscula', async () => {
+    const user = userEvent.setup();
+    render(<InputField id="firstName" label="Nombre" />);
+
+    await user.type(screen.getByLabelText('Nombre'), 'luna de miel');
+
+    // Solo la primera letra: el resto queda como se escribió.
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Luna de miel');
+  });
+
+  it('el formulario recibe el valor ya corregido en su onChange', async () => {
+    const user = userEvent.setup();
+    const values: string[] = [];
+    render(<InputField id="breed" label="Raza" onChange={(e) => values.push(e.target.value)} />);
+
+    await user.type(screen.getByLabelText('Raza'), 'pug');
+
+    expect(values.at(-1)).toBe('Pug');
+  });
+
+  it.each([
+    ['correo', <InputField key="e" id="email" label="Campo" type="email" />],
+    ['contraseña', <InputField key="p" id="password" label="Campo" type="password" />],
+    ['búsqueda', <InputField key="s" id="pet-search" label="Campo" />],
+  ])('no cambia nada en un campo de %s', async (_tipo, field) => {
+    const user = userEvent.setup();
+    render(field);
+
+    await user.type(screen.getByLabelText('Campo'), 'abc');
+
+    expect(screen.getByLabelText('Campo')).toHaveValue('abc');
+  });
+});

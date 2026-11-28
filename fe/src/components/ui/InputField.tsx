@@ -8,6 +8,7 @@
 
 import { useState, type InputHTMLAttributes } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import { capitalizeFirstLetter, shouldCapitalize } from '@/utils/capitalize';
 
 interface InputFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   // ¿Qué? Texto del label visible — requerido para accesibilidad.
@@ -18,8 +19,12 @@ interface InputFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
-export function InputField({ label, id, error, className = '', type = 'text', ...props }: InputFieldProps) {
+export function InputField({ label, id, error, className = '', type = 'text', onChange, ...props }: InputFieldProps) {
   const errorId = `${id}-error`;
+
+  // ¿Qué? En los campos de texto la primera letra siempre queda en mayúscula.
+  // ¿Impacto? No aplica a correo, contraseña, búsquedas ni campos numéricos o de fecha.
+  const capitalize = shouldCapitalize(type, id, props.name, props.autoComplete);
 
   // ¿Qué? Estado del "ojo": solo aplica a los campos de contraseña.
   // ¿Para qué? Permitir que el usuario revele lo que escribió para verificar que no
@@ -61,7 +66,13 @@ export function InputField({ label, id, error, className = '', type = 'text', ..
           ]
             .filter(Boolean)
             .join(' ')}
+          // ¿Qué? En celulares, el teclado también arranca en mayúscula.
+          autoCapitalize={capitalize ? 'sentences' : 'none'}
           {...props}
+          onChange={(e) => {
+            if (capitalize) capitalizeFirstLetter(e.target);
+            onChange?.(e);
+          }}
         />
 
         {/* ¿Qué? Botón para mostrar/ocultar la contraseña. Solo en campos type="password". */}

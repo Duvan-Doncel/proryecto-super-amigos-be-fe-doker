@@ -15,8 +15,20 @@ import { useAuthModal } from '@/hooks/useAuthModal';
 
 const CLIENT_LINKS = [
   { to: '/app', label: 'Inicio', end: true },
-  { to: '/app/cita', label: 'Agendar' },
+  { to: '/app/cita', label: 'Agendar cita' },
   { to: '/app/tienda', label: 'Tienda' },
+  { to: '/app/perfil/mascotas', label: 'Ficha de mi mascota' },
+];
+
+// ¿Qué? Anclas a las secciones de la landing (solo visitantes). Van con "/#" para que
+//   funcionen también desde /precios o /terminos.
+const PUBLIC_LINKS = [
+  { href: '/#servicios', label: 'Servicios' },
+  { href: '/#por-que', label: 'Por qué elegirnos' },
+  { href: '/#galeria', label: 'Galería' },
+  { href: '/#cotizador', label: 'Precios' },
+  { href: '/#testimonios', label: 'Testimonios' },
+  { href: '/#contacto', label: 'Contacto' },
 ];
 
 export function Navbar() {
@@ -49,21 +61,39 @@ export function Navbar() {
   const homeLink = user?.role === 'staff' ? '/staff' : isClient ? '/app' : '/';
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-surface/90 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-border bg-bg/85 backdrop-blur">
       <nav
-        className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6"
+        className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6"
         aria-label="Navegación principal"
       >
         <Link
           to={homeLink}
-          className="focus-ring flex items-center gap-2 rounded font-display text-base font-extrabold text-text"
+          className="focus-ring flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded"
         >
-          <span className="grid h-8 w-8 place-items-center rounded-lg brand-gradient text-white">
+          <span className="grid h-9 w-9 place-items-center rounded-full brand-gradient text-white">
             <PawPrint className="h-5 w-5" aria-hidden="true" />
           </span>
-          <span className="hidden sm:inline">Super Amigos Grooming Spa</span>
-          <span className="sm:hidden">Super Amigos</span>
+          <span className="leading-none">
+            <span className="block font-display text-base font-bold text-text">Super Amigos</span>
+            <span className="mt-0.5 block text-[10px] font-semibold tracking-[0.18em] text-text-muted">
+              GROOMING SPA
+            </span>
+          </span>
         </Link>
+
+        {!isAuthenticated && (
+          <div className="hidden items-center gap-0.5 xl:flex">
+            {PUBLIC_LINKS.map((l) => (
+              <a
+                key={l.href}
+                href={l.href}
+                className="focus-ring rounded-full px-3 py-1.5 text-sm text-text-muted transition-colors hover:text-text"
+              >
+                {l.label}
+              </a>
+            ))}
+          </div>
+        )}
 
         {isClient && (
           <div className="hidden items-center gap-1 md:flex">
@@ -73,9 +103,9 @@ export function Navbar() {
                 to={l.to}
                 end={l.end}
                 className={({ isActive }) =>
-                  `focus-ring rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  `focus-ring rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-surface-2 text-[color:var(--color-primary)]'
+                      ? 'bg-[color:var(--color-primary)]/15 text-text'
                       : 'text-text-muted hover:text-text'
                   }`
                 }
@@ -96,12 +126,19 @@ export function Navbar() {
                 onClick={() => setMenuOpen((v) => !v)}
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
-                className="focus-ring flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-text hover:bg-surface-2"
+                className="focus-ring flex items-center gap-2 rounded-full border border-border bg-surface px-2 py-1 text-sm text-text hover:bg-surface-2"
               >
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-surface-2 text-[color:var(--color-primary)]">
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--color-primary)]/15 text-[color:var(--color-primary)]">
                   <UserRound className="h-4 w-4" aria-hidden="true" />
                 </span>
-                <span className="hidden max-w-24 truncate sm:inline">{user?.firstName}</span>
+                <span className="hidden text-left leading-tight sm:block">
+                  <span className="block max-w-28 truncate font-medium">
+                    {user?.firstName} {user?.lastName}
+                  </span>
+                  <span className="block text-[11px] text-text-muted">
+                    {isClient ? 'Cliente' : 'Equipo Super Amigos'}
+                  </span>
+                </span>
                 <ChevronDown className="h-4 w-4 text-text-muted" aria-hidden="true" />
               </button>
 
@@ -145,14 +182,14 @@ export function Navbar() {
               <button
                 type="button"
                 onClick={() => open('login')}
-                className="focus-ring rounded-lg px-3 py-1.5 text-sm text-text hover:bg-surface-2"
+                className="focus-ring rounded-full border border-border px-4 py-1.5 text-sm text-text hover:bg-surface-2"
               >
                 Iniciar sesión
               </button>
               <button
                 type="button"
                 onClick={() => open('register')}
-                className="focus-ring rounded-lg bg-[color:var(--color-btn)] px-3 py-1.5 text-sm font-semibold text-[color:var(--color-btn-fg)] hover:bg-[color:var(--color-btn-hover)]"
+                className="focus-ring rounded-full bg-[color:var(--color-btn)] px-4 py-1.5 text-sm font-semibold text-[color:var(--color-btn-fg)] hover:bg-[color:var(--color-btn-hover)]"
               >
                 Crear cuenta
               </button>
