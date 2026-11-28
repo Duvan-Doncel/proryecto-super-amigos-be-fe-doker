@@ -25,6 +25,7 @@ import { Alert } from '@/components/ui/Alert';
 import { DOG_BREEDS } from '@/data/dogBreeds';
 import { CAT_BREEDS } from '@/data/catBreeds';
 import { rowNumber } from '@/utils/tablePaging';
+import { capitalizeFirstLetter } from '@/utils/capitalize';
 
 const SPECIES_OPTIONS: { value: PetSpecies; label: string }[] = [
   { value: 'canina', label: 'Canina' },
@@ -480,6 +481,7 @@ export function StaffPetsPage() {
                 id="pathology"
                 name="pathology"
                 value={formData.pathology}
+                onInput={(e) => capitalizeFirstLetter(e.currentTarget)}
                 onChange={handleChange}
                 rows={2}
                 maxLength={300}

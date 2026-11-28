@@ -9,6 +9,7 @@
 import type { PetFormData } from './petForm';
 import type { CoatType, PetBehavior, PetSize, PetSpecies, SkinConditionType } from '@/types/pets';
 import { SIZE_LABELS, COAT_LABELS, BEHAVIOR_LABELS, SKIN_CONDITION_LABELS } from '@/types/pricing';
+import { capitalizeFirstLetter } from '@/utils/capitalize';
 import { InputField } from '@/components/ui/InputField';
 import { SelectField } from '@/components/ui/SelectField';
 import { BreedCombobox } from '@/components/ui/BreedCombobox';
@@ -189,6 +190,7 @@ export function PetFormFields({ formData, onChange, onBreedChange, onToggleCondi
           id="pathology"
           name="pathology"
           value={formData.pathology}
+          onInput={(e) => capitalizeFirstLetter(e.currentTarget)}
           onChange={onChange}
           rows={2}
           maxLength={300}
