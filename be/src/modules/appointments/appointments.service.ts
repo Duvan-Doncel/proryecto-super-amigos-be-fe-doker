@@ -17,6 +17,13 @@ import { assertPetBelongsToClient } from '../pets/pets.service.js';
 import { calculatePrice, type PriceBreakdown } from '../pricing/pricing.service.js';
 import type { CreateAppointmentInput, UpdateAppointmentStatusInput } from './appointments.schema.js';
 
+import {
+  DAILY_APPOINTMENT_CAPACITY,
+  hasDailyCapacity,
+  isDateAllowed,
+  isWithinBusinessHours,
+} from './appointments.rules.js';
+
 export interface AppointmentResponse {
   id: string;
   clientId: string;
@@ -51,28 +58,6 @@ function toAppointmentResponse(appt: Appointment): AppointmentResponse {
   };
 }
 
-// ¿Qué? Calcula la fecha mínima permitida (mañana, a partir de hoy) en formato AAAA-MM-DD.
-// ¿Para qué? Aplicar RN-092: "la cita debe ser a partir de mañana".
-function minimumAllowedDate(): string {
-  const tomorrow = new Date();
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-  return toDateOnly(tomorrow);
-}
-
-// ¿Qué? Convierte "HH:mm" a minutos desde medianoche, para comparar contra el horario de atención.
-function toMinutes(time: string): number {
-  const [h, m] = time.split(':').map(Number);
-  return h! * 60 + m!;
-}
-
-const OPENING_MINUTES = 9 * 60; // 9:00 a.m.
-const CLOSING_MINUTES = 18 * 60; // 6:00 p.m.
-
-// ¿Qué? Tope de citas de grooming que el local puede atender en un mismo día — el negocio
-//   solo tiene capacidad física para ~10 baños/día. Cuenta citas 'pending'/'confirmed'/
-//   'completed'; las 'cancelled' NO cuentan, así que cancelar libera el cupo para otro cliente.
-const DAILY_APPOINTMENT_CAPACITY = 10;
-
 // ¿Qué? Cuántas citas ya ocupan un cupo en una fecha dada (no canceladas).
 async function countBookedAppointments(date: string): Promise<number> {
   return db.appointment.count({
@@ -93,13 +78,12 @@ export async function createAppointment(
   await assertPetBelongsToClient(data.petId, clientId);
 
   // RN-092: la cita debe ser, como mínimo, para el día siguiente a hoy.
-  if (data.date < minimumAllowedDate()) {
+  if (!isDateAllowed(data.date, new Date())) {
     throw new BadRequestError('La cita debe ser a partir de mañana, no se permite hoy ni fechas anteriores.');
   }
 
   // RN-093: la hora debe estar dentro del horario de atención (9:00 a.m. - 6:00 p.m.).
-  const minutes = toMinutes(data.time);
-  if (minutes < OPENING_MINUTES || minutes > CLOSING_MINUTES) {
+   if (!isWithinBusinessHours(data.time)) {
     throw new BadRequestError('La hora debe estar entre las 9:00am y las 6:00pm.');
   }
 
@@ -111,7 +95,7 @@ export async function createAppointment(
 
   // ¿Qué? Tope diario de citas — evita agendar si ese día ya está lleno.
   const booked = await countBookedAppointments(data.date);
-  if (booked >= DAILY_APPOINTMENT_CAPACITY) {
+  if (!hasDailyCapacity(booked)) {
     throw new BadRequestError('Ya no quedan cupos disponibles para esa fecha. Elige otro día.');
   }
 

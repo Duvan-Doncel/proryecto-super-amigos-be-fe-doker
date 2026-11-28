@@ -30,7 +30,7 @@ import { clientRouter as ordersClientRouter, staffRouter as ordersStaffRouter } 
 import suppliersRouter from './modules/suppliers/suppliers.router.js';
 import supplierOrdersRouter from './modules/supplier-orders/supplier-orders.router.js';
 import salesRouter, { salesReportRouter } from './modules/sales/sales.router.js';
-import { errorHandler } from './middlewares/error.middleware.js';
+import { errorHandler, NotFoundError } from './middlewares/error.middleware.js';
 
 const app: Application = express();
 
@@ -52,7 +52,7 @@ app.use(cors({
 app.use(express.json());
 
 // ¿Qué? Sirve las fotos de mascota subidas a disco (ver middlewares/upload.middleware.ts).
-// ¿Para qué? El frontend (otro origen: localhost:5173) las carga en <img src>. Por defecto
+// ¿Para qué? El frontend (otro origen: localhost:5173) las carga en img src. Por defecto
 //   helmet marca todo como same-origin (Cross-Origin-Resource-Policy) — se relaja SOLO para
 //   esta ruta de estáticos, nunca para el resto de la API.
 app.use(
@@ -111,6 +111,12 @@ app.use('/api/v1/suppliers', suppliersRouter);
 app.use('/api/v1/supplier-orders', supplierOrdersRouter);
 app.use('/api/v1/sales', salesRouter);
 app.use('/api/v1/staff/sales-report', salesReportRouter);
+
+// ¿Qué? Cualquier ruta que no exista → 404 en el mismo formato JSON del resto del API.
+// ¿Para qué? Sin esto Express respondía una página HTML "Cannot GET ..." (hallazgo semana 4).
+app.use((_req: Request, _res: Response, next: NextFunction) => {
+  next(new NotFoundError('Ruta no encontrada.'));
+});
 
 // ¿Qué? Middleware global de errores — debe registrarse AL FINAL, después de las rutas.
 // ¿Para qué? Capturar todos los errores lanzados en controllers y services.
