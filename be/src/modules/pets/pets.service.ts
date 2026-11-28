@@ -11,8 +11,9 @@ import path from 'node:path';
 import type { Pet } from '@prisma/client';
 import { toPetResponse, type PetResponse } from './pets.mapper.js';
 import { db } from '../../db/index.js';
-import { NotFoundError, ForbiddenError } from '../../middlewares/error.middleware.js';
+import { NotFoundError, ForbiddenError, ValidationError } from '../../middlewares/error.middleware.js';
 import { deriveSizeFromWeight } from '../pricing/pricing.service.js';
+import { isUuid } from '../../utils/ids.js';
 import type { CreatePetInput, UpdatePetInput } from './pets.schema.js';
 
 export type { PetResponse } from './pets.mapper.js';
@@ -30,6 +31,19 @@ async function resolveSize(
   return undefined;
 }
 
+// ¿Qué? Rechaza una lista de condiciones de piel con el mismo tipo repetido.
+// ¿Para qué? La tabla pet_skin_conditions tiene UNIQUE(pet_id, type): PostgreSQL rechazaba el
+//   duplicado y el API respondía 500. Hallazgo de la semana 6 (capa API); lo fijan
+//   tests/pets.rules.test.ts (unitario) y tests/pets.integration.api.test.ts (BD real).
+// ¿Impacto? El cliente recibe 422 con el formato del contrato y no se guarda nada.
+export function assertUniqueSkinConditions(conditions: { type: string }[] | undefined): void {
+  if (!conditions) return;
+  const types = conditions.map((c) => c.type);
+  if (new Set(types).size !== types.length) {
+    throw new ValidationError('skinConditions: cada condición de piel puede aparecer una sola vez.');
+  }
+}
+
 // ¿Qué? Registra una mascota a nombre de un cliente existente (RF-012).
 // ¿Para qué? Solo el staff puede hacerlo (verificado en el router con requireRole).
 // ¿Impacto? Si el clientId no corresponde a un cliente real, se rechaza con 404.
@@ -40,6 +54,7 @@ export async function createPet(data: CreatePetInput): Promise<PetResponse> {
     throw new NotFoundError('Cliente no encontrado.');
   }
 
+  assertUniqueSkinConditions(data.skinConditions);
   const size = await resolveSize(data.size, data.weight, data.species);
 
   const pet = await db.pet.create({
@@ -74,6 +89,7 @@ export async function createPet(data: CreatePetInput): Promise<PetResponse> {
 export async function updatePet(id: string, data: UpdatePetInput): Promise<PetResponse> {
   const existing = await db.pet.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('Mascota no encontrada.');
+  assertUniqueSkinConditions(data.skinConditions);
 
   // Recalcular talla si cambió el peso y no vino una talla explícita (con los tramos de la especie).
   let size: Pet['size'] | undefined;
@@ -131,6 +147,8 @@ export async function listPetsByClient(clientId: string): Promise<PetResponse[]>
 // ¿Impacto? Lanza NotFoundError si no existe, ForbiddenError si es de otro cliente —
 //   así el caller no necesita reimplementar esta verificación.
 export async function assertPetBelongsToClient(petId: string, clientId: string): Promise<Pet> {
+  // Un id que no es UUID no puede existir: 404 en vez de dejar que PostgreSQL falle con 500.
+  if (!isUuid(petId)) throw new NotFoundError('Mascota no encontrada.');
   const pet = await db.pet.findUnique({ where: { id: petId } });
 
   if (!pet) throw new NotFoundError('Mascota no encontrada.');

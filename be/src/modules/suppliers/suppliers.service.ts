@@ -5,7 +5,7 @@
 
 import type { Supplier } from '@prisma/client';
 import { db } from '../../db/index.js';
-import { NotFoundError } from '../../middlewares/error.middleware.js';
+import { NotFoundError, ValidationError } from '../../middlewares/error.middleware.js';
 import type { CreateSupplierInput, UpdateSupplierInput } from './suppliers.schema.js';
 
 export interface SupplierResponse {
@@ -32,12 +32,26 @@ function toResponse(s: Supplier): SupplierResponse {
   };
 }
 
+// ¿Qué? Rechaza textos que traen el carácter nulo (\u0000) en cualquier campo.
+// ¿Para qué? PostgreSQL no acepta ese carácter en columnas de texto y respondía 500.
+//   (MySQL sí lo guarda: es una diferencia entre motores.) Hallazgo de la semana 6,
+//   capa BD; lo fijan tests/suppliers.rules.test.ts y tests/suppliers.db.test.ts.
+// ¿Impacto? El cliente recibe 422 con el formato del contrato en vez de un 500.
+export function assertNoNullCharacters(data: Record<string, unknown>): void {
+  for (const value of Object.values(data)) {
+    if (typeof value === 'string' && value.includes('\u0000')) {
+      throw new ValidationError('El texto contiene caracteres no permitidos.');
+    }
+  }
+}
+
 export async function listSuppliers(): Promise<SupplierResponse[]> {
   const suppliers = await db.supplier.findMany({ orderBy: { name: 'asc' } });
   return suppliers.map(toResponse);
 }
 
 export async function createSupplier(data: CreateSupplierInput): Promise<SupplierResponse> {
+  assertNoNullCharacters(data);
   const supplier = await db.supplier.create({ data });
   return toResponse(supplier);
 }
@@ -49,6 +63,7 @@ export async function updateSupplier(
   const existing = await db.supplier.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('Proveedor no encontrado.');
 
+  assertNoNullCharacters(data);
   const updated = await db.supplier.update({ where: { id }, data });
   return toResponse(updated);
 }

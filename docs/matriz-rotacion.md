@@ -13,9 +13,9 @@ Reglas:
 | Integrante (usuario GitHub) | S1 | S2 | S3 | S4 | S5 | S6 | S7 | S8 | S9 |
 |---|---|---|---|---|---|---|---|---|---|
 | @ysvalenciarejercito-code (Yesid Valencia) | E2E ([#6](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/6)) | Front ([#8](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/8)) | Front: RegisterForm ([#10](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/10)) | | | | | | |
-| @Juan-wiki (Juan Rodríguez) | E2E | API | Front: ChangePasswordPage | | | | | | |
-| @alvaroespejo2006-source (Álvaro Espejo) | E2E ([#3](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/3)) | BD: mascotas ([#11](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/11)) | Front: LoginForm ([#12](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/12)) | | | | | | |
-| @Duvan-Doncel (Santiago Doncel) | E2E ([#2](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/2)) | E2E (CI) ([#5](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/5), [#7](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/7)) | Front: AppointmentPage ([#9](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/9)) | | | | | | |
+| @Juan-wiki (Juan Rodríguez) | E2E ([#36](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/36)) | API ([#37](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/37)) | Front: ChangePasswordPage ([#38](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/38)) | | | | | | |
+| @alvaroespejo2006-source (Álvaro Espejo) | E2E ([#3](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/3)) | BD: mascotas ([#11](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/11)) | Front: LoginForm ([#12](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/12)) | Front: contrato de mascotas ([#16](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/16)) | E2E: Mis mascotas con page.route ([#22](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/22)) | API: mascotas contra la BD real ([#23](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/23)) | | | |
+| @Duvan-Doncel (Santiago Doncel) | E2E ([#2](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/2)) | E2E (CI) ([#5](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/5), [#7](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/7)) | Front: AppointmentPage ([#9](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/9)) | API: citas ([#13](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/13)) | BD: citas ([#24](https://github.com/Duvan-Doncel/proryecto-super-amigos-be-fe-doker/pull/24)) | | | | |
 
 ## Cobertura semanal
 
@@ -26,6 +26,9 @@ Anota la cobertura real al cerrar cada semana. El umbral de la semana siguiente 
 | S1 (línea base) | 1.93 | 57.56 | fe 30 / be 57 |
 | S2 | | | |
 | S3 | | | |
+| S4 | | | |
+| S5 | | | |
+| S6 | | | |
 
 ## Registro de vocero aleatorio
 
@@ -34,3 +37,6 @@ Anota la cobertura real al cerrar cada semana. El umbral de la semana siguiente 
 | S1 | | | | |
 | S2 | | | | |
 | S3 | | | | |
+| S4 | | | | |
+| S5 | | | | |
+| S6 | | | | |

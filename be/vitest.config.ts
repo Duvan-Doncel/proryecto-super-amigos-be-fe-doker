@@ -7,8 +7,8 @@
  *   no tendrían la BD limpia entre ejecuciones.
  */
 
-import { defineConfig } from 'vitest/config';
-import dotenv from 'dotenv';
+import { defineConfig } from "vitest/config";
+import dotenv from "dotenv";
 
 // ¿Qué? Carga .env.test ANTES de que cualquier test importe src/config.ts.
 // ¿Para qué? Los tests deben correr contra una base de datos separada de la de
@@ -17,13 +17,13 @@ import dotenv from 'dotenv';
 //   cada vez que alguien ejecutaba `pnpm test` (ya nos pasó una vez).
 // ¿Impacto? override:true asegura que .env.test gane aunque el shell ya tenga
 //   DATABASE_URL exportada desde otro .env cargado previamente.
-dotenv.config({ path: '.env.test', override: true });
+dotenv.config({ path: ".env.test", override: true });
 
 export default defineConfig({
   test: {
     // ¿Qué? Entorno de ejecución Node.js (no browser).
     // ¿Para qué? Los tests del backend usan APIs de Node — net, crypto, etc.
-    environment: 'node',
+    environment: "node",
 
     // ¿Qué? Ejecuta los archivos de test de a uno, nunca en paralelo.
     // ¿Para qué? Todos comparten la MISMA base de datos de tests y el setup la limpia
@@ -31,22 +31,37 @@ export default defineConfig({
     //   archivo borra los datos que otro está usando → fallos intermitentes.
     fileParallelism: false,
 
-    // ¿Qué? Archivos que se ejecutan antes de cada suite de tests.
-    // ¿Para qué? El setup.ts limpia la BD entre tests para garantizar aislamiento.
-    setupFiles: ['./src/tests/setup.ts'],
-
-    // ¿Qué? Archivos que vitest incluye como tests.
-    include: ['src/**/*.test.ts'],
+    // ¿Qué? Dos proyectos: integración (con BD de tests) y API (BD simulada con vi.mock).
+    // ¿Para qué? El setup.ts limpia la BD real en cada test; los tests de API no deben
+    //   necesitar Docker ni Postgres (semana 4).
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "integracion",
+          include: ["src/**/*.test.ts"],
+          exclude: ["src/tests/api/**"],
+          setupFiles: ["./src/tests/setup.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "api",
+          include: ["src/tests/api/**/*.test.ts"],
+        },
+      },
+    ],
 
     // ¿Qué? Reporte de cobertura usando el provider v8 de Node.js.
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'lcov'],
+      provider: "v8",
+      reporter: ["text", "lcov"],
       // ¿Qué? Solo medir cobertura de código fuente, no de tests ni tipos.
-      include: ['src/**/*.ts'],
-      exclude: ['src/tests/**', 'src/types/**', 'src/**/*.d.ts'],
+      include: ["src/**/*.ts"],
+      exclude: ["src/tests/**", "src/types/**", "src/**/*.d.ts"],
       // ¿Qué? Umbral mínimo de cobertura exigido por el proyecto (80%).
-            thresholds: {
+      thresholds: {
         lines: 57,
         statements: 56,
         functions: 50,
