@@ -93,7 +93,7 @@ export function StaffOrdersPage() {
         <>
           <FilterBar onClear={() => setSearch('')} hasActiveFilters={hasActiveFilters}>
             <div className="w-64">
-              <InputField id="order-client-search" label="Buscar por cliente" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre del cliente" />
+              <InputField maxLength={100} id="order-client-search" label="Buscar por cliente" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre del cliente" />
             </div>
           </FilterBar>
 

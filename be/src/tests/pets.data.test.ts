@@ -35,6 +35,18 @@ describe('createMyPetSchema: peso (> 0 y ≤ 999.99, columna Decimal(5,2))', () 
   ])('el peso %s → válido: %s', (weight, expected) => {
     expect(createMyPetSchema.safeParse({ ...validPet, weight }).success).toBe(expected);
   });
+
+  it('si el peso pasa el tope, el mensaje sale en español (lo ve el cliente en el popup)', () => {
+    // Arrange
+    const data = { ...validPet, weight: 5000 };
+
+    // Act
+    const result = createMyPetSchema.safeParse(data);
+
+    // Assert
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].message).toBe('El peso no puede pasar de 999,99 kg.');
+  });
 });
 
 describe('createMyPetSchema: edad (entero entre 0 y 100)', () => {

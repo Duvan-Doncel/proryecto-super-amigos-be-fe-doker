@@ -157,7 +157,7 @@ export function StaffSuppliersPage() {
         hasActiveFilters={hasActiveFilters}
       >
         <div className="w-56">
-          <InputField id="supplier-search" label="Buscar" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre, contacto o email" />
+          <InputField maxLength={100} id="supplier-search" label="Buscar" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nombre, contacto o email" />
         </div>
         <div className="w-40">
           <SelectField id="supplier-status" label="Estado" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as '' | 'active' | 'inactive')}>

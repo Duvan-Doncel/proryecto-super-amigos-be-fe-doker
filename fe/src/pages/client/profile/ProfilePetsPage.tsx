@@ -200,7 +200,7 @@ export function ProfilePetsPage() {
           </SelectField>
         </div>
         <div className="w-56">
-          <InputField
+          <InputField maxLength={100}
             id="pet-search"
             label="Buscar por nombre o raza"
             value={search}

@@ -108,6 +108,27 @@ describe('GET /api/v1/staff/clients', () => {
     expect(res.body.data.every((c: { firstName: string }) => /zoraida/i.test(c.firstName))).toBe(true);
   });
 
+  it('busca por nombre y apellido juntos: cada palabra filtra más', async () => {
+    await createVerifiedTestUser({ email: 'a1@groomingspa.com', firstName: 'Alvaro', lastName: 'Espejo', documentId: '3000000001' });
+    await createVerifiedTestUser({ email: 'a2@groomingspa.com', firstName: 'Alvaro', lastName: 'Rojas', documentId: '3000000002' });
+    await createVerifiedTestUser({ email: 'm3@groomingspa.com', firstName: 'Maria', lastName: 'Espejo', documentId: '3000000003' });
+    const { accessToken } = await loginTestStaff();
+    const buscar = (q: string) =>
+      request(app)
+        .get(`/api/v1/staff/clients?q=${encodeURIComponent(q)}`)
+        .set('Authorization', `Bearer ${accessToken}`);
+    const nombres = (res: request.Response) =>
+      res.body.data.map((c: { firstName: string; lastName: string }) => `${c.firstName} ${c.lastName}`).sort();
+
+    const soloNombre = await buscar('alvaro');
+    const completo = await buscar('Alvaro Espejo');
+    const alReves = await buscar('espejo alv');
+
+    expect(nombres(soloNombre)).toEqual(['Alvaro Espejo', 'Alvaro Rojas']);
+    expect(nombres(completo)).toEqual(['Alvaro Espejo']);
+    expect(nombres(alReves)).toEqual(['Alvaro Espejo']);
+  });
+
   it('responde 403 para un cliente (no-staff)', async () => {
     const { accessToken } = await loginTestUser();
     const res = await request(app)

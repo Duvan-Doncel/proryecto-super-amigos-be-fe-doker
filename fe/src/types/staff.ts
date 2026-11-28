@@ -15,6 +15,21 @@ export interface ClientSummary {
   //   no traerlos.
   createdAt?: string;
   petCount?: number;
+  // ¿Qué? Baja del cliente: fecha y motivo. null (o ausente) = cliente activo.
+  deactivatedAt?: string | null;
+  deactivationReason?: string | null;
+}
+
+// ¿Qué? Filtro de estado de la lista de clientes.
+export type ClientStatusFilter = 'active' | 'inactive' | 'all';
+
+// ¿Qué? Respuesta al dar de baja o reactivar a un cliente.
+export interface ClientStatusResult {
+  id: string;
+  deactivatedAt: string | null;
+  deactivationReason: string | null;
+  cancelledAppointments: number;
+  cancelledOrders: number;
 }
 
 // ¿Qué? Metadatos de paginación que devuelve GET /staff/clients.

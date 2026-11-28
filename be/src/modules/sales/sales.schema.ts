@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import { LIMITS, dateRange, quantityField } from '../../utils/limits.js';
 
 export const createSaleSchema = z
   .object({
@@ -12,10 +13,11 @@ export const createSaleSchema = z
       .array(
         z.object({
           productId: z.string().uuid('El productId debe ser un UUID válido.'),
-          quantity: z.coerce.number().int().positive('La cantidad debe ser mayor a 0.'),
+          quantity: quantityField(),
         }),
       )
-      .min(1, 'La venta debe tener al menos un producto.'),
+      .min(1, 'La venta debe tener al menos un producto.')
+      .max(LIMITS.maxItems, `La venta no puede tener más de ${LIMITS.maxItems} productos.`),
     clientId: z.string().uuid().optional(),
     clientName: z.string().max(150).trim().optional(),
   })
@@ -26,11 +28,8 @@ export const createSaleSchema = z
 
 export type CreateSaleInput = z.infer<typeof createSaleSchema>;
 
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
-export const salesReportQuerySchema = z.object({
-  from: z.string().regex(DATE_REGEX, 'from debe tener el formato AAAA-MM-DD.'),
-  to: z.string().regex(DATE_REGEX, 'to debe tener el formato AAAA-MM-DD.'),
-});
+// ¿Impacto? Máx. 366 días: un reporte de hasta un año.
+export const salesReportQuerySchema = dateRange(366);
 
 export type SalesReportQuery = z.infer<typeof salesReportQuerySchema>;

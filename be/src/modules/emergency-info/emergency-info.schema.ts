@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+import { LIMITS } from '../../utils/limits.js';
 
 export const updateEmergencyInfoSchema = z.object({
   searchQuery: z.string().min(3, 'El texto de búsqueda es requerido.').max(200).trim(),
@@ -14,7 +15,8 @@ export const updateEmergencyInfoSchema = z.object({
         phone: z.string().min(3, 'El teléfono es requerido.').max(30).trim(),
       }),
     )
-    .min(1, 'Debe haber al menos un número de emergencia.'),
+    .min(1, 'Debe haber al menos un número de emergencia.')
+    .max(LIMITS.maxEmergencyPhones, `No puede haber más de ${LIMITS.maxEmergencyPhones} números.`),
 });
 
 export type UpdateEmergencyInfoInput = z.infer<typeof updateEmergencyInfoSchema>;

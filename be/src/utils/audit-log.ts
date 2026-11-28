@@ -17,7 +17,9 @@ type AuditEvent =
   | 'PASSWORD_RESET_REQUESTED'
   | 'EMAIL_VERIFIED'
   | 'RATE_LIMIT_HIT'
-  | 'PROFILE_UPDATED';
+  | 'PROFILE_UPDATED'
+  | 'CLIENT_DEACTIVATED'
+  | 'CLIENT_REACTIVATED';
 
 // ¿Qué? Estructura de un registro de auditoría.
 // ¿Para qué? Normalizar el formato de todos los logs para facilitar su procesamiento
@@ -108,6 +110,28 @@ export function logProfileUpdated(userId: string, fields: string[]): void {
     event: 'PROFILE_UPDATED',
     userId,
     reason: `campos: ${fields.join(', ')}`,
+  });
+}
+
+// ¿Qué? Registra que un staff dio de baja o reactivó a un cliente.
+// ¿Para qué? Saber quién y cuándo sacó a un cliente del sistema (o lo devolvió).
+// ¿Impacto? `userId` es el staff que hizo la acción; el cliente afectado va en `reason`.
+//   El motivo escrito por el staff NO se registra aquí (puede tener datos personales).
+export function logClientDeactivated(staffId: string, clientId: string): void {
+  writeAuditLog({
+    timestamp: new Date().toISOString(),
+    event: 'CLIENT_DEACTIVATED',
+    userId: staffId,
+    reason: `cliente: ${clientId}`,
+  });
+}
+
+export function logClientReactivated(staffId: string, clientId: string): void {
+  writeAuditLog({
+    timestamp: new Date().toISOString(),
+    event: 'CLIENT_REACTIVATED',
+    userId: staffId,
+    reason: `cliente: ${clientId}`,
   });
 }
 

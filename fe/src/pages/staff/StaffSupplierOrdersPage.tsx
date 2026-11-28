@@ -161,10 +161,10 @@ export function StaffSupplierOrdersPage() {
                     </SelectField>
                   </div>
                   <div className="w-20">
-                    <InputField id={`quantity-${index}`} name={`quantity-${index}`} label="Cant." type="number" min={1} value={item.quantity} onChange={(e) => updateItem(index, 'quantity', e.target.value)} />
+                    <InputField max={999} id={`quantity-${index}`} name={`quantity-${index}`} label="Cant." type="number" min={1} value={item.quantity} onChange={(e) => updateItem(index, 'quantity', e.target.value)} />
                   </div>
                   <div className="w-28">
-                    <InputField id={`unitCost-${index}`} name={`unitCost-${index}`} label="Costo unit." type="number" min={1} value={item.unitCost} onChange={(e) => updateItem(index, 'unitCost', e.target.value)} />
+                    <InputField max={9999999} id={`unitCost-${index}`} name={`unitCost-${index}`} label="Costo unit." type="number" min={1} value={item.unitCost} onChange={(e) => updateItem(index, 'unitCost', e.target.value)} />
                   </div>
                   {items.length > 1 && (
                     <Button type="button" variant="danger" className="px-2 py-2 text-xs" onClick={() => removeItemRow(index)} aria-label="Quitar producto">

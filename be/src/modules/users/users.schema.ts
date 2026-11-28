@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { pageField, safeText } from '../../utils/limits.js';
 
 // ¿Qué? Mismas reglas que auth.schema (letras / dígitos) — repetidas aquí para no crear
 //   una dependencia entre módulos por una constante.
@@ -52,8 +53,24 @@ export const listClientsQuerySchema = z.object({
   q: z.string().trim().min(2, 'Escribe al menos 2 caracteres para buscar.').max(100).optional(),
   // ¿Qué? Filtro avanzado: solo clientes con al menos una mascota registrada, o sin ninguna.
   hasPets: z.enum(['true', 'false']).optional(),
-  page: z.coerce.number().int().min(1).default(1),
+  // ¿Qué? Qué clientes listar: activos (por defecto), dados de baja o todos.
+  // ¿Impacto? Por defecto 'active': los buscadores de mascotas y ventas nunca ofrecen
+  //   clientes dados de baja.
+  status: z.enum(['active', 'inactive', 'all']).default('active'),
+  page: pageField(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export type ListClientsQuery = z.infer<typeof listClientsQuerySchema>;
+
+// --- Baja de un cliente (POST /api/v1/staff/clients/:id/deactivate) ---
+// ¿Qué? Motivo opcional de la baja ("se mudó", "pidió cerrar su cuenta"...).
+// ¿Impacto? `safeText`: máx. 300 caracteres, sin caracteres de control ni signos < >, y
+//   espacios repetidos colapsados (ver utils/limits.ts).
+export const deactivateClientSchema = z.object({
+  reason: safeText(300)
+    .optional()
+    .transform((v) => (v ? v : undefined)),
+});
+
+export type DeactivateClientInput = z.infer<typeof deactivateClientSchema>;
